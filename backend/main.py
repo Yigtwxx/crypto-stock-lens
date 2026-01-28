@@ -11,9 +11,12 @@ import hashlib
 
 from models.schemas import NewsItem, NewsResponse, AnalysisRequest, SentimentAnalysis
 from services.news_service import fetch_all_news
+from services.ollama_service import analyze_news_with_ollama, generate_prediction_hash, check_ollama_health
 
 # Set to True to use real API data, False for mock data
 USE_REAL_API = True
+# Set to True to use Ollama AI for analysis
+USE_OLLAMA_AI = True
 
 app = FastAPI(
     title="Oracle-X API",
@@ -187,9 +190,9 @@ async def get_news_item(news_id: str):
 @app.post("/api/analyze", response_model=SentimentAnalysis)
 async def analyze_news(request: AnalysisRequest):
     """
-    Analyze a news item using RAG + LLM.
+    Analyze a news item using Ollama LLM (llama3.1:8b).
     
-    Currently returns mock data. Will integrate Ollama + ChromaDB in Phase 2.
+    Provides real AI-powered sentiment analysis with confidence scores.
     """
     # Find the news item from cache or mock data
     news_item = get_news_from_cache_or_mock(request.news_id)
@@ -197,24 +200,46 @@ async def analyze_news(request: AnalysisRequest):
     if not news_item:
         raise HTTPException(status_code=404, detail="News item not found")
     
-    # Mock analysis (will be replaced with Ollama + RAG)
-    sentiments = ["bullish", "bearish", "neutral"]
-    sentiment = random.choice(sentiments[:2])  # Favor bullish/bearish for demo
-    confidence = round(random.uniform(0.65, 0.95), 2)
+    if USE_OLLAMA_AI:
+        # Use real Ollama AI analysis
+        analysis = await analyze_news_with_ollama(
+            title=news_item.title,
+            summary=news_item.summary,
+            symbol=news_item.symbol,
+            asset_type=news_item.asset_type
+        )
+        
+        sentiment = analysis.get("sentiment", "neutral")
+        confidence = analysis.get("confidence", 0.7)
+        reasoning = analysis.get("reasoning", "Analysis completed.")
+        
+        # Build historical context from AI analysis
+        key_factors = analysis.get("key_factors", [])
+        price_impact = analysis.get("price_impact", "")
+        risk_level = analysis.get("risk_level", "medium")
+        time_horizon = analysis.get("time_horizon", "short-term")
+        
+        historical_context = f"Risk Level: {risk_level.upper()} | Time Horizon: {time_horizon}. "
+        if key_factors:
+            historical_context += f"Key factors: {', '.join(key_factors[:3])}. "
+        if price_impact:
+            historical_context += f"Expected impact: {price_impact}"
+    else:
+        # Fallback to mock analysis
+        sentiments = ["bullish", "bearish", "neutral"]
+        sentiment = random.choice(sentiments[:2])
+        confidence = round(random.uniform(0.65, 0.95), 2)
+        reasoning = f"Based on analysis of '{news_item.title}', market indicators suggest a {sentiment} outlook."
+        historical_context = f"Similar news patterns have resulted in average price movements of +/-8.5% within 7 days."
     
     # Generate prediction hash
-    prediction_data = f"{news_item.id}:{sentiment}:{confidence}:{datetime.now().isoformat()}"
-    prediction_hash = hashlib.sha256(prediction_data.encode()).hexdigest()
+    prediction_hash = generate_prediction_hash(news_item.id, sentiment, confidence)
     
     return SentimentAnalysis(
         sentiment=sentiment,
         confidence=confidence,
-        reasoning=f"Based on analysis of '{news_item.title}', market indicators suggest "
-                  f"a {sentiment} outlook. Key factors include institutional activity, "
-                  f"technical patterns, and sector momentum.",
-        historical_context=f"Similar news patterns in the past 12 months have resulted in "
-                          f"average price movements of +/-8.5% within 7 days. The {news_item.symbol} "
-                          f"has shown strong correlation with this type of catalyst.",
+        reasoning=reasoning,
+        historical_context=historical_context,
         prediction_hash=prediction_hash,
         tx_hash=None  # Will be populated after blockchain verification
     )
@@ -225,6 +250,18 @@ async def get_tracked_symbols():
     """Get list of all tracked symbols."""
     symbols = list(set(item.symbol for item in MOCK_NEWS))
     return {"symbols": symbols}
+
+
+@app.get("/api/ollama/status")
+async def get_ollama_status():
+    """Check Ollama AI service status."""
+    is_healthy = await check_ollama_health()
+    return {
+        "ollama_available": is_healthy,
+        "model": "llama3.1:8b" if is_healthy else None,
+        "ai_enabled": USE_OLLAMA_AI and is_healthy,
+        "message": "Ollama AI is ready" if is_healthy else "Ollama is not available - using fallback analysis"
+    }
 
 
 if __name__ == "__main__":

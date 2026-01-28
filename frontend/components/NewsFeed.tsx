@@ -25,25 +25,29 @@ export default function NewsFeed() {
     } = useStore();
 
     useEffect(() => {
-        loadNews();
+        loadNews(false); // Initial load with loading state
 
-        // Auto-refresh every 35 seconds
+        // Auto-refresh every 5 seconds (silent, no loading spinner)
         const interval = setInterval(() => {
-            loadNews();
+            loadNews(true); // Silent refresh
         }, 5000);
 
         return () => clearInterval(interval);
     }, []);
 
-    const loadNews = async () => {
-        setLoadingNews(true);
+    const loadNews = async (silent: boolean = false) => {
+        if (!silent) {
+            setLoadingNews(true);
+        }
         try {
             const items = await fetchNews();
             setNewsItems(items);
         } catch (error) {
             console.error('Failed to load news:', error);
         } finally {
-            setLoadingNews(false);
+            if (!silent) {
+                setLoadingNews(false);
+            }
         }
     };
 
@@ -80,7 +84,7 @@ export default function NewsFeed() {
                     <h2 className="font-semibold text-white">The Feed</h2>
                 </div>
                 <button
-                    onClick={loadNews}
+                    onClick={() => loadNews(false)}
                     className="p-2 rounded-lg hover:bg-oracle-card transition-colors"
                     title="Refresh"
                 >

@@ -26,6 +26,13 @@ export default function NewsFeed() {
 
     useEffect(() => {
         loadNews();
+
+        // Auto-refresh every 35 seconds
+        const interval = setInterval(() => {
+            loadNews();
+        }, 5000);
+
+        return () => clearInterval(interval);
     }, []);
 
     const loadNews = async () => {
@@ -117,15 +124,15 @@ export default function NewsFeed() {
                                 key={news.id}
                                 onClick={() => handleNewsClick(news)}
                                 className={`news-item p-4 rounded-lg border cursor-pointer ${selectedNews?.id === news.id
-                                        ? 'selected border-oracle-accent bg-oracle-accent/10'
-                                        : 'border-oracle-border hover:border-oracle-accent/50'
+                                    ? 'selected border-oracle-accent bg-oracle-accent/10'
+                                    : 'border-oracle-border hover:border-oracle-accent/50'
                                     }`}
                             >
                                 {/* Asset Badge */}
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${news.asset_type === 'crypto'
-                                            ? 'bg-purple-500/20 text-purple-400'
-                                            : 'bg-blue-500/20 text-blue-400'
+                                        ? 'bg-purple-500/20 text-purple-400'
+                                        : 'bg-blue-500/20 text-blue-400'
                                         }`}>
                                         {news.symbol.split(':')[1]}
                                     </span>

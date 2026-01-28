@@ -10,7 +10,6 @@ build/
 *.tsbuildinfo
 next-env.d.ts
 
-
 # Python
 __pycache__/
 *.py[cod]

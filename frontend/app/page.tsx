@@ -7,7 +7,7 @@ import { Activity, Zap } from 'lucide-react';
 
 export default function Dashboard() {
     return (
-        <div className="min-h-screen flex flex-col">
+        <div className="h-screen flex flex-col overflow-hidden">
             {/* Header */}
             <header className="h-16 border-b border-oracle-border bg-oracle-dark/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50">
                 <div className="flex items-center gap-3">
@@ -35,7 +35,7 @@ export default function Dashboard() {
             </header>
 
             {/* Main 3-Column Grid */}
-            <main className="flex-1 grid grid-cols-[25%_40%_35%] gap-0 overflow-hidden">
+            <main className="flex-1 grid grid-cols-[22%_50%_28%] gap-0 overflow-hidden h-[calc(100vh-64px)]">
                 {/* Left Panel - The Feed (20%) */}
                 <aside className="border-r border-oracle-border overflow-hidden flex flex-col bg-oracle-dark/50">
                     <NewsFeed />

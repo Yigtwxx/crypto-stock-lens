@@ -10,6 +10,10 @@ import random
 import hashlib
 
 from models.schemas import NewsItem, NewsResponse, AnalysisRequest, SentimentAnalysis
+from services.news_service import fetch_all_news
+
+# Set to True to use real API data, False for mock data
+USE_REAL_API = True
 
 app = FastAPI(
     title="Oracle-X API",
@@ -125,10 +129,10 @@ async def root():
 @app.get("/api/news", response_model=NewsResponse)
 async def get_news(
     asset_type: Optional[str] = None,
-    limit: int = 10
+    limit: int = 20
 ):
     """
-    Fetch latest news items.
+    Fetch latest news items from multiple sources.
     
     Args:
         asset_type: Filter by "stock" or "crypto" (optional)
@@ -137,22 +141,46 @@ async def get_news(
     Returns:
         List of news items with metadata
     """
-    items = MOCK_NEWS.copy()
+    if USE_REAL_API:
+        try:
+            items = await fetch_all_news()
+        except Exception as e:
+            print(f"Error fetching real news: {e}")
+            items = MOCK_NEWS.copy()
+    else:
+        items = MOCK_NEWS.copy()
     
     if asset_type:
         items = [n for n in items if n.asset_type == asset_type]
     
     items = items[:limit]
     
+    # Cache news items for analyze endpoint
+    global _news_cache
+    _news_cache = {item.id: item for item in items}
+    
     return NewsResponse(items=items, total=len(items))
+
+# Global cache for fetched news items
+_news_cache: dict = {}
+
+
+def get_news_from_cache_or_mock(news_id: str) -> Optional[NewsItem]:
+    """Get news item from cache or mock data."""
+    if news_id in _news_cache:
+        return _news_cache[news_id]
+    for item in MOCK_NEWS:
+        if item.id == news_id:
+            return item
+    return None
 
 
 @app.get("/api/news/{news_id}", response_model=NewsItem)
 async def get_news_item(news_id: str):
     """Fetch a specific news item by ID."""
-    for item in MOCK_NEWS:
-        if item.id == news_id:
-            return item
+    item = get_news_from_cache_or_mock(news_id)
+    if item:
+        return item
     raise HTTPException(status_code=404, detail="News item not found")
 
 
@@ -163,12 +191,8 @@ async def analyze_news(request: AnalysisRequest):
     
     Currently returns mock data. Will integrate Ollama + ChromaDB in Phase 2.
     """
-    # Find the news item
-    news_item = None
-    for item in MOCK_NEWS:
-        if item.id == request.news_id:
-            news_item = item
-            break
+    # Find the news item from cache or mock data
+    news_item = get_news_from_cache_or_mock(request.news_id)
     
     if not news_item:
         raise HTTPException(status_code=404, detail="News item not found")

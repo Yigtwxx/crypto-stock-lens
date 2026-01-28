@@ -1,6 +1,6 @@
 """Pydantic models for API request/response schemas."""
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -33,5 +33,5 @@ class SentimentAnalysis(BaseModel):
 
 class NewsResponse(BaseModel):
     """Schema for news list response."""
-    items: list[NewsItem]
+    items: List[NewsItem]
     total: int

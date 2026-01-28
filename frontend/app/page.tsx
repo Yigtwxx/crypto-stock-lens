@@ -35,7 +35,7 @@ export default function Dashboard() {
             </header>
 
             {/* Main 3-Column Grid */}
-            <main className="flex-1 grid grid-cols-[20%_50%_30%] gap-0 overflow-hidden">
+            <main className="flex-1 grid grid-cols-[25%_40%_35%] gap-0 overflow-hidden">
                 {/* Left Panel - The Feed (20%) */}
                 <aside className="border-r border-oracle-border overflow-hidden flex flex-col bg-oracle-dark/50">
                     <NewsFeed />

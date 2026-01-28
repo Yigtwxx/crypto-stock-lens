@@ -2,6 +2,7 @@
 Oracle-X Backend API
 FastAPI server providing news feeds, AI analysis, and blockchain verification.
 """
+from typing import Optional, List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
@@ -26,7 +27,7 @@ app.add_middleware(
 )
 
 # Mock news data for development
-MOCK_NEWS: list[NewsItem] = [
+MOCK_NEWS: List[NewsItem] = [
     NewsItem(
         id="news_001",
         title="Bitcoin Surges Past $105K as Institutional Demand Grows",
@@ -123,7 +124,7 @@ async def root():
 
 @app.get("/api/news", response_model=NewsResponse)
 async def get_news(
-    asset_type: str | None = None,
+    asset_type: Optional[str] = None,
     limit: int = 10
 ):
     """

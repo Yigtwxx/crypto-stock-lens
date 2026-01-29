@@ -314,8 +314,9 @@ async def fetch_bloomberght_rss() -> List[NewsItem]:
             
             # Clean HTML and CDATA
             import re
+            title = re.sub(r'<!\[CDATA\[|\]\]>', '', title).strip()
             summary = re.sub(r'<!\[CDATA\[|\]\]>', '', summary)
-            summary = re.sub(r'<[^>]+>', '', summary)
+            summary = re.sub(r'<[^>]+>', '', summary).strip()
             
             # Detect if it's crypto or stock related
             crypto_keywords = ["bitcoin", "btc", "ethereum", "eth", "kripto", "coin", "altcoin"]
@@ -323,12 +324,25 @@ async def fetch_bloomberght_rss() -> List[NewsItem]:
             asset_type = "crypto" if is_crypto else "stock"
             symbol = detect_symbol(f"{title} {summary}", asset_type)
             
-            # Parse published date
+            # Parse published date - try multiple methods
+            pub_date = datetime.now()
             published = entry.get("published_parsed")
             if published:
-                pub_date = datetime(*published[:6])
+                try:
+                    pub_date = datetime(*published[:6])
+                except:
+                    pass
             else:
-                pub_date = datetime.now()
+                # Try parsing from raw published string
+                raw_pub = entry.get("published", "")
+                raw_pub = re.sub(r'<!\[CDATA\[|\]\]>', '', raw_pub).strip()
+                if raw_pub:
+                    try:
+                        from email.utils import parsedate_to_datetime
+                        pub_date = parsedate_to_datetime(raw_pub)
+                        pub_date = pub_date.replace(tzinfo=None)  # Make timezone naive
+                    except:
+                        pass
             
             items.append(NewsItem(
                 id=generate_news_id(title, "BloombergHT"),

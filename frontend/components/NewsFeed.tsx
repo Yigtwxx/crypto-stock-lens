@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, NewsItem } from '@/store/useStore';
-import { fetchNews, analyzeNews } from '@/lib/api';
+import { fetchNews, analyzeNews, fetchCurrentPrice } from '@/lib/api';
 import {
     Newspaper,
     TrendingUp,
@@ -23,6 +23,8 @@ export default function NewsFeed() {
         setAnalysis,
         setLoadingAnalysis
     } = useStore();
+
+    const [activeFilter, setActiveFilter] = useState<'all' | 'stock' | 'crypto'>('all');
 
     useEffect(() => {
         loadNews(false); // Initial load with loading state
@@ -54,9 +56,13 @@ export default function NewsFeed() {
     const handleNewsClick = async (news: NewsItem) => {
         selectNews(news);
 
-        // Trigger analysis
+        // Trigger analysis with current price
         try {
-            const analysis = await analyzeNews(news.id);
+            // Fetch current price for more accurate technical analysis
+            const currentPrice = await fetchCurrentPrice(news.symbol);
+
+            // Analyze with current price context
+            const analysis = await analyzeNews(news.id, currentPrice ?? undefined);
             setAnalysis(analysis);
         } catch (error) {
             console.error('Failed to analyze news:', error);
@@ -68,41 +74,67 @@ export default function NewsFeed() {
         const date = new Date(dateString);
         const now = new Date();
         const diffMs = now.getTime() - date.getTime();
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
 
-        if (diffHours < 1) return 'Just now';
+        if (diffMinutes < 1) return 'Just now';
+        if (diffMinutes < 60) return `${diffMinutes}m ago`;
         if (diffHours < 24) return `${diffHours}h ago`;
         return `${Math.floor(diffHours / 24)}d ago`;
     };
 
+    // Filter news items based on active filter
+    const filteredNews = newsItems.filter(news => {
+        if (activeFilter === 'all') return true;
+        return news.asset_type === activeFilter;
+    });
+
     return (
         <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="p-4 border-b border-oracle-border flex items-center justify-between">
+            <div className="p-4 border-b border-oracle-border flex items-center justify-between bg-gradient-to-r from-oracle-dark via-oracle-dark to-indigo/5">
                 <div className="flex items-center gap-2">
-                    <Newspaper className="w-5 h-5 text-oracle-accent" />
-                    <h2 className="font-semibold text-white">The Feed</h2>
+                    <Newspaper className="w-5 h-5 text-indigo" />
+                    <h2 className="font-semibold bg-gradient-to-r from-white to-indigo bg-clip-text text-transparent">The Feed</h2>
                 </div>
                 <button
                     onClick={() => loadNews(false)}
-                    className="p-2 rounded-lg hover:bg-oracle-card transition-colors"
+                    className="p-2 rounded-lg hover:bg-indigo/10 transition-colors"
                     title="Refresh"
                 >
-                    <RefreshCw className={`w-4 h-4 text-gray-400 ${isLoadingNews ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-4 h-4 text-gray-400 hover:text-indigo ${isLoadingNews ? 'animate-spin' : ''}`} />
                 </button>
             </div>
 
             {/* Filter Tabs */}
             <div className="p-3 border-b border-oracle-border flex gap-2">
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-oracle-accent/20 text-oracle-accent text-sm font-medium">
+                <button
+                    onClick={() => setActiveFilter('all')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${activeFilter === 'all'
+                        ? 'bg-violet/20 text-violet border border-violet/30'
+                        : 'text-gray-400 hover:bg-violet/10 hover:text-violet'
+                        }`}
+                >
                     <Filter className="w-3.5 h-3.5" />
                     All
                 </button>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-oracle-card text-gray-400 text-sm transition-colors">
+                <button
+                    onClick={() => setActiveFilter('stock')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${activeFilter === 'stock'
+                        ? 'bg-stock/20 text-stock border border-stock/30'
+                        : 'text-gray-400 hover:bg-stock/10 hover:text-stock'
+                        }`}
+                >
                     <TrendingUp className="w-3.5 h-3.5" />
                     Stocks
                 </button>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-oracle-card text-gray-400 text-sm transition-colors">
+                <button
+                    onClick={() => setActiveFilter('crypto')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${activeFilter === 'crypto'
+                        ? 'bg-crypto/20 text-crypto border border-crypto/30'
+                        : 'text-gray-400 hover:bg-crypto/10 hover:text-crypto'
+                        }`}
+                >
                     <Bitcoin className="w-3.5 h-3.5" />
                     Crypto
                 </button>
@@ -123,7 +155,7 @@ export default function NewsFeed() {
                     </div>
                 ) : (
                     <div className="p-3 space-y-2">
-                        {newsItems.map((news) => (
+                        {filteredNews.map((news) => (
                             <article
                                 key={news.id}
                                 onClick={() => handleNewsClick(news)}
@@ -135,8 +167,8 @@ export default function NewsFeed() {
                                 {/* Asset Badge */}
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${news.asset_type === 'crypto'
-                                        ? 'bg-purple-500/20 text-purple-400'
-                                        : 'bg-blue-500/20 text-blue-400'
+                                        ? 'bg-crypto/20 text-crypto'
+                                        : 'bg-stock/20 text-stock'
                                         }`}>
                                         {news.symbol.split(':')[1]}
                                     </span>

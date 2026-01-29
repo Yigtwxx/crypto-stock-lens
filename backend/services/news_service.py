@@ -392,6 +392,46 @@ async def fetch_bloomberght_rss() -> List[NewsItem]:
             pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
+                id=generate_news_id(title, "BloombergHT"),
+                title=title,
+                summary=summary[:200] + "..." if len(summary) > 200 else summary,
+                source="BloombergHT",
+                published_at=pub_date,
+                symbol=symbol,
+                asset_type=asset_type,
+                url=entry.get("link", "")
+            ))
+    except Exception as e:
+        print(f"BloombergHT RSS fetch error: {e}")
+    
+    return items
+
+
+async def fetch_paraanaliz_rss() -> List[NewsItem]:
+    """
+    Fetch Turkish economy news from Paraanaliz RSS (free).
+    """
+    items = []
+    try:
+        feed = feedparser.parse("https://www.paraanaliz.com/feed/")
+        
+        for entry in feed.entries[:10]:
+            title = entry.get("title", "")
+            summary = entry.get("description", "")
+            
+            # Clean HTML
+            import re
+            summary = re.sub(r'<[^>]+>', '', summary)
+            
+            # Detect if it's crypto or stock related
+            crypto_keywords = ["bitcoin", "btc", "ethereum", "eth", "kripto", "coin"]
+            is_crypto = any(kw in title.lower() or kw in summary.lower() for kw in crypto_keywords)
+            asset_type = "crypto" if is_crypto else "stock"
+            symbol = detect_symbol(f"{title} {summary}", asset_type)
+            
+            pub_date = parse_feed_date(entry)
+            
+            items.append(NewsItem(
                 id=generate_news_id(title, "Paraanaliz"),
                 title=title,
                 summary=summary[:200] + "..." if len(summary) > 200 else summary,

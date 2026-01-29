@@ -176,13 +176,14 @@ async def fetch_cointelegraph_rss() -> List[NewsItem]:
     return items
 
 
-async def fetch_yahoo_finance_rss() -> List[NewsItem]:
+async def fetch_marketwatch_rss() -> List[NewsItem]:
     """
-    Fetch stock news from Yahoo Finance RSS (free).
+    Fetch stock news from MarketWatch RSS (free).
     """
     items = []
     try:
-        feed = feedparser.parse("https://finance.yahoo.com/news/rssindex")
+        # Use the correct redirect URL
+        feed = feedparser.parse("https://feeds.content.dowjones.io/public/rss/mw_topstories")
         
         for entry in feed.entries[:10]:
             title = entry.get("title", "")
@@ -202,20 +203,233 @@ async def fetch_yahoo_finance_rss() -> List[NewsItem]:
                 pub_date = datetime.now()
             
             items.append(NewsItem(
-                id=generate_news_id(title, "Yahoo Finance"),
+                id=generate_news_id(title, "MarketWatch"),
                 title=title,
                 summary=summary[:200] + "..." if len(summary) > 200 else summary,
-                source="Yahoo Finance",
+                source="MarketWatch",
                 published_at=pub_date,
                 symbol=symbol,
                 asset_type="stock",
                 url=entry.get("link", "")
             ))
     except Exception as e:
-        print(f"Yahoo Finance RSS fetch error: {e}")
+        print(f"MarketWatch RSS fetch error: {e}")
     
     return items
 
+
+async def fetch_investing_rss() -> List[NewsItem]:
+    """
+    Fetch stock news from Investing.com RSS (free).
+    """
+    items = []
+    try:
+        feed = feedparser.parse("https://www.investing.com/rss/news.rss")
+        
+        for entry in feed.entries[:10]:
+            title = entry.get("title", "")
+            summary = entry.get("summary", "")
+            
+            # Clean HTML
+            import re
+            summary = re.sub(r'<[^>]+>', '', summary)
+            
+            symbol = detect_symbol(f"{title} {summary}", "stock")
+            
+            # Parse published date
+            published = entry.get("published_parsed")
+            if published:
+                pub_date = datetime(*published[:6])
+            else:
+                pub_date = datetime.now()
+            
+            items.append(NewsItem(
+                id=generate_news_id(title, "Investing.com"),
+                title=title,
+                summary=summary[:200] + "..." if len(summary) > 200 else summary,
+                source="Investing.com",
+                published_at=pub_date,
+                symbol=symbol,
+                asset_type="stock",
+                url=entry.get("link", "")
+            ))
+    except Exception as e:
+        print(f"Investing.com RSS fetch error: {e}")
+    
+    return items
+
+
+async def fetch_seeking_alpha_rss() -> List[NewsItem]:
+    """
+    Fetch stock news from Seeking Alpha RSS (free).
+    """
+    items = []
+    try:
+        feed = feedparser.parse("https://seekingalpha.com/market_currents.xml")
+        
+        for entry in feed.entries[:10]:
+            title = entry.get("title", "")
+            summary = entry.get("summary", "")
+            
+            # Clean HTML
+            import re
+            summary = re.sub(r'<[^>]+>', '', summary)
+            
+            symbol = detect_symbol(f"{title} {summary}", "stock")
+            
+            # Parse published date
+            published = entry.get("published_parsed")
+            if published:
+                pub_date = datetime(*published[:6])
+            else:
+                pub_date = datetime.now()
+            
+            items.append(NewsItem(
+                id=generate_news_id(title, "Seeking Alpha"),
+                title=title,
+                summary=summary[:200] + "..." if len(summary) > 200 else summary,
+                source="Seeking Alpha",
+                published_at=pub_date,
+                symbol=symbol,
+                asset_type="stock",
+                url=entry.get("link", "")
+            ))
+    except Exception as e:
+        print(f"Seeking Alpha RSS fetch error: {e}")
+    
+    return items
+
+
+async def fetch_bloomberght_rss() -> List[NewsItem]:
+    """
+    Fetch Turkish finance news from BloombergHT RSS (free).
+    """
+    items = []
+    try:
+        feed = feedparser.parse("https://www.bloomberght.com/rss")
+        
+        for entry in feed.entries[:10]:
+            title = entry.get("title", "")
+            summary = entry.get("description", "")
+            
+            # Clean HTML and CDATA
+            import re
+            summary = re.sub(r'<!\[CDATA\[|\]\]>', '', summary)
+            summary = re.sub(r'<[^>]+>', '', summary)
+            
+            # Detect if it's crypto or stock related
+            crypto_keywords = ["bitcoin", "btc", "ethereum", "eth", "kripto", "coin", "altcoin"]
+            is_crypto = any(kw in title.lower() or kw in summary.lower() for kw in crypto_keywords)
+            asset_type = "crypto" if is_crypto else "stock"
+            symbol = detect_symbol(f"{title} {summary}", asset_type)
+            
+            # Parse published date
+            published = entry.get("published_parsed")
+            if published:
+                pub_date = datetime(*published[:6])
+            else:
+                pub_date = datetime.now()
+            
+            items.append(NewsItem(
+                id=generate_news_id(title, "BloombergHT"),
+                title=title,
+                summary=summary[:200] + "..." if len(summary) > 200 else summary,
+                source="BloombergHT",
+                published_at=pub_date,
+                symbol=symbol,
+                asset_type=asset_type,
+                url=entry.get("link", "")
+            ))
+    except Exception as e:
+        print(f"BloombergHT RSS fetch error: {e}")
+    
+    return items
+
+
+async def fetch_paraanaliz_rss() -> List[NewsItem]:
+    """
+    Fetch Turkish economy news from Paraanaliz RSS (free).
+    """
+    items = []
+    try:
+        feed = feedparser.parse("https://www.paraanaliz.com/feed/")
+        
+        for entry in feed.entries[:10]:
+            title = entry.get("title", "")
+            summary = entry.get("description", "")
+            
+            # Clean HTML
+            import re
+            summary = re.sub(r'<[^>]+>', '', summary)
+            
+            # Detect if it's crypto or stock related
+            crypto_keywords = ["bitcoin", "btc", "ethereum", "eth", "kripto", "coin"]
+            is_crypto = any(kw in title.lower() or kw in summary.lower() for kw in crypto_keywords)
+            asset_type = "crypto" if is_crypto else "stock"
+            symbol = detect_symbol(f"{title} {summary}", asset_type)
+            
+            # Parse published date
+            published = entry.get("published_parsed")
+            if published:
+                pub_date = datetime(*published[:6])
+            else:
+                pub_date = datetime.now()
+            
+            items.append(NewsItem(
+                id=generate_news_id(title, "Paraanaliz"),
+                title=title,
+                summary=summary[:200] + "..." if len(summary) > 200 else summary,
+                source="Paraanaliz",
+                published_at=pub_date,
+                symbol=symbol,
+                asset_type=asset_type,
+                url=entry.get("link", "")
+            ))
+    except Exception as e:
+        print(f"Paraanaliz RSS fetch error: {e}")
+    
+    return items
+
+
+async def fetch_koinbulteni_rss() -> List[NewsItem]:
+    """
+    Fetch Turkish crypto news from Koin Bülteni RSS (free).
+    """
+    items = []
+    try:
+        feed = feedparser.parse("https://koinbulteni.com/feed")
+        
+        for entry in feed.entries[:10]:
+            title = entry.get("title", "")
+            summary = entry.get("description", "")
+            
+            # Clean HTML
+            import re
+            summary = re.sub(r'<[^>]+>', '', summary)
+            
+            symbol = detect_symbol(f"{title} {summary}", "crypto")
+            
+            # Parse published date
+            published = entry.get("published_parsed")
+            if published:
+                pub_date = datetime(*published[:6])
+            else:
+                pub_date = datetime.now()
+            
+            items.append(NewsItem(
+                id=generate_news_id(title, "Koin Bülteni"),
+                title=title,
+                summary=summary[:200] + "..." if len(summary) > 200 else summary,
+                source="Koin Bülteni",
+                published_at=pub_date,
+                symbol=symbol,
+                asset_type="crypto",
+                url=entry.get("link", "")
+            ))
+    except Exception as e:
+        print(f"Koin Bülteni RSS fetch error: {e}")
+    
+    return items
 
 async def fetch_all_news() -> List[NewsItem]:
     """
@@ -223,10 +437,18 @@ async def fetch_all_news() -> List[NewsItem]:
     """
     # Fetch from all sources concurrently
     results = await asyncio.gather(
+        # Global crypto sources
         fetch_cryptocompare_news(),
         fetch_coindesk_rss(),
         fetch_cointelegraph_rss(),
-        fetch_yahoo_finance_rss(),
+        # Global stock sources
+        fetch_marketwatch_rss(),
+        fetch_investing_rss(),
+        fetch_seeking_alpha_rss(),
+        # Turkish sources
+        fetch_bloomberght_rss(),
+        fetch_paraanaliz_rss(),
+        fetch_koinbulteni_rss(),
         return_exceptions=True
     )
     

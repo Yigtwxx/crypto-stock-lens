@@ -7,9 +7,15 @@
   --oracle-darker: #050508;
   --oracle-card: #12121a;
   --oracle-border: #2a2a3a;
-  --oracle-accent: #6366f1;
-  --oracle-bullish: #10b981;
+  --oracle-accent: #8b5cf6;
+  --oracle-bullish: #22c55e;
   --oracle-bearish: #ef4444;
+  --oracle-neutral: #f59e0b;
+  --crypto-orange: #f7931a;
+  --stock-blue: #3b82f6;
+  --cyan: #06b6d4;
+  --pink: #ec4899;
+  --teal: #14b8a6;
 }
 
 * {
@@ -28,8 +34,10 @@ body {
 }
 
 body {
-  background: 
-    radial-gradient(ellipse 80% 80% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
+  background:
+    radial-gradient(ellipse 80% 80% at 50% -20%, rgba(139, 92, 246, 0.12), transparent),
+    radial-gradient(ellipse 60% 60% at 80% 50%, rgba(236, 72, 153, 0.05), transparent),
+    radial-gradient(ellipse 60% 60% at 20% 80%, rgba(6, 182, 212, 0.05), transparent),
     var(--oracle-darker);
   min-height: 100vh;
 }
@@ -95,27 +103,29 @@ body {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(26, 26, 37, 0.8) 25%,
-    rgba(42, 42, 58, 0.8) 50%,
-    rgba(26, 26, 37, 0.8) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(26, 26, 37, 0.8) 25%,
+      rgba(42, 42, 58, 0.8) 50%,
+      rgba(26, 26, 37, 0.8) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
 /* Pulse animation for live indicator */
 @keyframes live-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }

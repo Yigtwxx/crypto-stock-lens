@@ -4,34 +4,126 @@ Supports: CryptoCompare, NewsAPI, RSS feeds
 """
 import httpx
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import hashlib
 import feedparser
+from email.utils import parsedate_to_datetime
 
 from models.schemas import NewsItem
+
+
+def parse_feed_date(entry) -> datetime:
+    """
+    Parse date from feed entry with proper timezone handling.
+    Returns datetime in local time for accurate display.
+    """
+    try:
+        # First try raw published string with timezone info
+        raw_pub = entry.get("published", "")
+        if raw_pub:
+            try:
+                # email.utils handles RFC 2822 dates with timezone
+                dt = parsedate_to_datetime(raw_pub)
+                # Convert to system local time (handles timezone properly)
+                dt_local = dt.astimezone(tz=None)
+                # Return as naive datetime for compatibility
+                return dt_local.replace(tzinfo=None)
+            except:
+                pass
+        
+        # Fallback to parsed tuple (feedparser may already adjust for UTC)
+        published = entry.get("published_parsed")
+        if published:
+            # published_parsed is struct_time in UTC, add 3 hours for Turkey
+            dt = datetime(*published[:6])
+            return dt + timedelta(hours=3)  # UTC+3 for Turkey
+    except:
+        pass
+    
+    return datetime.now()
+
 
 
 # Symbol mappings for different news sources
 CRYPTO_SYMBOLS = {
     "BTC": "BINANCE:BTCUSDT",
+    "BITCOIN": "BINANCE:BTCUSDT",
     "ETH": "BINANCE:ETHUSDT",
+    "ETHEREUM": "BINANCE:ETHUSDT",
     "SOL": "BINANCE:SOLUSDT",
+    "SOLANA": "BINANCE:SOLUSDT",
     "XRP": "BINANCE:XRPUSDT",
+    "RIPPLE": "BINANCE:XRPUSDT",
     "ADA": "BINANCE:ADAUSDT",
+    "CARDANO": "BINANCE:ADAUSDT",
     "DOGE": "BINANCE:DOGEUSDT",
+    "DOGECOIN": "BINANCE:DOGEUSDT",
     "DOT": "BINANCE:DOTUSDT",
+    "POLKADOT": "BINANCE:DOTUSDT",
     "AVAX": "BINANCE:AVAXUSDT",
+    "AVALANCHE": "BINANCE:AVAXUSDT",
+    "MATIC": "BINANCE:MATICUSDT",
+    "POLYGON": "BINANCE:MATICUSDT",
+    "LINK": "BINANCE:LINKUSDT",
+    "CHAINLINK": "BINANCE:LINKUSDT",
+    "UNI": "BINANCE:UNIUSDT",
+    "UNISWAP": "BINANCE:UNIUSDT",
 }
 
 STOCK_SYMBOLS = {
-    "AAPL": "NASDAQ:AAPL",
-    "TSLA": "NASDAQ:TSLA",
-    "MSFT": "NASDAQ:MSFT",
-    "NVDA": "NASDAQ:NVDA",
-    "GOOGL": "NASDAQ:GOOGL",
-    "AMZN": "NASDAQ:AMZN",
-    "META": "NASDAQ:META",
+    # Tech Giants
+    "AAPL": "NASDAQ:AAPL", "APPLE": "NASDAQ:AAPL",
+    "TSLA": "NASDAQ:TSLA", "TESLA": "NASDAQ:TSLA",
+    "MSFT": "NASDAQ:MSFT", "MICROSOFT": "NASDAQ:MSFT",
+    "NVDA": "NASDAQ:NVDA", "NVIDIA": "NASDAQ:NVDA",
+    "GOOGL": "NASDAQ:GOOGL", "GOOGLE": "NASDAQ:GOOGL", "ALPHABET": "NASDAQ:GOOGL",
+    "AMZN": "NASDAQ:AMZN", "AMAZON": "NASDAQ:AMZN",
+    "META": "NASDAQ:META", "FACEBOOK": "NASDAQ:META",
+    "NFLX": "NASDAQ:NFLX", "NETFLIX": "NASDAQ:NFLX",
+    "AMD": "NASDAQ:AMD",
+    "INTC": "NASDAQ:INTC", "INTEL": "NASDAQ:INTC",
+    # Finance
+    "JPM": "NYSE:JPM", "JPMORGAN": "NYSE:JPM",
+    "BAC": "NYSE:BAC", "BANK OF AMERICA": "NYSE:BAC",
+    "GS": "NYSE:GS", "GOLDMAN": "NYSE:GS",
+    "MS": "NYSE:MS", "MORGAN STANLEY": "NYSE:MS",
+    "AMP": "NYSE:AMP", "AMERIPRISE": "NYSE:AMP",
+    "LAZ": "NYSE:LAZ", "LAZARD": "NYSE:LAZ",
+    # Industrial
+    "CAT": "NYSE:CAT", "CATERPILLAR": "NYSE:CAT",
+    "BA": "NYSE:BA", "BOEING": "NYSE:BA",
+    "GE": "NYSE:GE", "GENERAL ELECTRIC": "NYSE:GE",
+    "EXP": "NYSE:EXP", "EAGLE MATERIALS": "NYSE:EXP",
+    # Airlines & Transport
+    "LUV": "NYSE:LUV", "SOUTHWEST": "NYSE:LUV",
+    "DAL": "NYSE:DAL", "DELTA": "NYSE:DAL",
+    "UAL": "NASDAQ:UAL", "UNITED": "NASDAQ:UAL",
+    # Telecom & Tech
+    "NOK": "NYSE:NOK", "NOKIA": "NYSE:NOK",
+    "SAP": "NYSE:SAP",
+    "NOW": "NYSE:NOW", "SERVICENOW": "NYSE:NOW",
+    "CRM": "NYSE:CRM", "SALESFORCE": "NYSE:CRM",
+    # Energy
+    "XOM": "NYSE:XOM", "EXXON": "NYSE:XOM",
+    "CVX": "NYSE:CVX", "CHEVRON": "NYSE:CVX",
+    "VLO": "NYSE:VLO", "VALERO": "NYSE:VLO",
+    # Consumer
+    "WMT": "NYSE:WMT", "WALMART": "NYSE:WMT",
+    "KO": "NYSE:KO", "COCA-COLA": "NYSE:KO", "COKE": "NYSE:KO",
+    "PEP": "NASDAQ:PEP", "PEPSI": "NASDAQ:PEP",
+    "MCD": "NYSE:MCD", "MCDONALD": "NYSE:MCD",
+    # Pharma
+    "JNJ": "NYSE:JNJ", "JOHNSON": "NYSE:JNJ",
+    "PFE": "NYSE:PFE", "PFIZER": "NYSE:PFE",
+    "MRNA": "NASDAQ:MRNA", "MODERNA": "NASDAQ:MRNA",
+    # Other
+    "XRX": "NASDAQ:XRX", "XEROX": "NASDAQ:XRX",
+    "PHM": "NYSE:PHM", "PULTEGROUP": "NYSE:PHM", "PULTE": "NYSE:PHM",
+    "RCL": "NYSE:RCL", "ROYAL CARIBBEAN": "NYSE:RCL",
+    "BC": "NYSE:BC", "BRUNSWICK": "NYSE:BC",
+    "NWS": "NASDAQ:NWS", "NEWS CORP": "NASDAQ:NWS",
+    "DOW": "NYSE:DOW",
 }
 
 
@@ -40,13 +132,14 @@ def detect_symbol(text: str, asset_type: str) -> Optional[str]:
     text_upper = text.upper()
     
     if asset_type == "crypto":
-        for symbol, tradingview in CRYPTO_SYMBOLS.items():
-            if symbol in text_upper or symbol.lower() in text.lower():
+        for keyword, tradingview in CRYPTO_SYMBOLS.items():
+            if keyword in text_upper:
                 return tradingview
         return "BINANCE:BTCUSDT"  # Default
     else:
-        for symbol, tradingview in STOCK_SYMBOLS.items():
-            if symbol in text_upper:
+        # Try to match company names and tickers
+        for keyword, tradingview in STOCK_SYMBOLS.items():
+            if keyword in text_upper:
                 return tradingview
         return "NASDAQ:SPY"  # Default to S&P 500
 
@@ -112,12 +205,7 @@ async def fetch_coindesk_rss() -> List[NewsItem]:
             
             symbol = detect_symbol(f"{title} {summary}", "crypto")
             
-            # Parse published date
-            published = entry.get("published_parsed")
-            if published:
-                pub_date = datetime(*published[:6])
-            else:
-                pub_date = datetime.now()
+            pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
                 id=generate_news_id(title, "CoinDesk"),
@@ -153,12 +241,7 @@ async def fetch_cointelegraph_rss() -> List[NewsItem]:
             
             symbol = detect_symbol(f"{title} {summary}", "crypto")
             
-            # Parse published date
-            published = entry.get("published_parsed")
-            if published:
-                pub_date = datetime(*published[:6])
-            else:
-                pub_date = datetime.now()
+            pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
                 id=generate_news_id(title, "CoinTelegraph"),
@@ -194,13 +277,7 @@ async def fetch_marketwatch_rss() -> List[NewsItem]:
             summary = re.sub(r'<[^>]+>', '', summary)
             
             symbol = detect_symbol(f"{title} {summary}", "stock")
-            
-            # Parse published date
-            published = entry.get("published_parsed")
-            if published:
-                pub_date = datetime(*published[:6])
-            else:
-                pub_date = datetime.now()
+            pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
                 id=generate_news_id(title, "MarketWatch"),
@@ -235,13 +312,7 @@ async def fetch_investing_rss() -> List[NewsItem]:
             summary = re.sub(r'<[^>]+>', '', summary)
             
             symbol = detect_symbol(f"{title} {summary}", "stock")
-            
-            # Parse published date
-            published = entry.get("published_parsed")
-            if published:
-                pub_date = datetime(*published[:6])
-            else:
-                pub_date = datetime.now()
+            pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
                 id=generate_news_id(title, "Investing.com"),
@@ -276,13 +347,7 @@ async def fetch_seeking_alpha_rss() -> List[NewsItem]:
             summary = re.sub(r'<[^>]+>', '', summary)
             
             symbol = detect_symbol(f"{title} {summary}", "stock")
-            
-            # Parse published date
-            published = entry.get("published_parsed")
-            if published:
-                pub_date = datetime(*published[:6])
-            else:
-                pub_date = datetime.now()
+            pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
                 id=generate_news_id(title, "Seeking Alpha"),
@@ -324,70 +389,7 @@ async def fetch_bloomberght_rss() -> List[NewsItem]:
             asset_type = "crypto" if is_crypto else "stock"
             symbol = detect_symbol(f"{title} {summary}", asset_type)
             
-            # Parse published date - try multiple methods
-            pub_date = datetime.now()
-            published = entry.get("published_parsed")
-            if published:
-                try:
-                    pub_date = datetime(*published[:6])
-                except:
-                    pass
-            else:
-                # Try parsing from raw published string
-                raw_pub = entry.get("published", "")
-                raw_pub = re.sub(r'<!\[CDATA\[|\]\]>', '', raw_pub).strip()
-                if raw_pub:
-                    try:
-                        from email.utils import parsedate_to_datetime
-                        pub_date = parsedate_to_datetime(raw_pub)
-                        pub_date = pub_date.replace(tzinfo=None)  # Make timezone naive
-                    except:
-                        pass
-            
-            items.append(NewsItem(
-                id=generate_news_id(title, "BloombergHT"),
-                title=title,
-                summary=summary[:200] + "..." if len(summary) > 200 else summary,
-                source="BloombergHT",
-                published_at=pub_date,
-                symbol=symbol,
-                asset_type=asset_type,
-                url=entry.get("link", "")
-            ))
-    except Exception as e:
-        print(f"BloombergHT RSS fetch error: {e}")
-    
-    return items
-
-
-async def fetch_paraanaliz_rss() -> List[NewsItem]:
-    """
-    Fetch Turkish economy news from Paraanaliz RSS (free).
-    """
-    items = []
-    try:
-        feed = feedparser.parse("https://www.paraanaliz.com/feed/")
-        
-        for entry in feed.entries[:10]:
-            title = entry.get("title", "")
-            summary = entry.get("description", "")
-            
-            # Clean HTML
-            import re
-            summary = re.sub(r'<[^>]+>', '', summary)
-            
-            # Detect if it's crypto or stock related
-            crypto_keywords = ["bitcoin", "btc", "ethereum", "eth", "kripto", "coin"]
-            is_crypto = any(kw in title.lower() or kw in summary.lower() for kw in crypto_keywords)
-            asset_type = "crypto" if is_crypto else "stock"
-            symbol = detect_symbol(f"{title} {summary}", asset_type)
-            
-            # Parse published date
-            published = entry.get("published_parsed")
-            if published:
-                pub_date = datetime(*published[:6])
-            else:
-                pub_date = datetime.now()
+            pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
                 id=generate_news_id(title, "Paraanaliz"),
@@ -423,12 +425,7 @@ async def fetch_koinbulteni_rss() -> List[NewsItem]:
             
             symbol = detect_symbol(f"{title} {summary}", "crypto")
             
-            # Parse published date
-            published = entry.get("published_parsed")
-            if published:
-                pub_date = datetime(*published[:6])
-            else:
-                pub_date = datetime.now()
+            pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
                 id=generate_news_id(title, "Koin Bülteni"),

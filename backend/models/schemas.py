@@ -21,12 +21,19 @@ class AnalysisRequest(BaseModel):
     news_id: str
 
 
+class TechnicalSignals(BaseModel):
+    rsi_signal: Optional[str] = "Neutral"
+    support_levels: List[str] = []
+    resistance_levels: List[str] = []
+    target_price: Optional[str] = None
+
 class SentimentAnalysis(BaseModel):
     """Schema for sentiment analysis results."""
     sentiment: str  # "bullish", "bearish", "neutral"
     confidence: float  # 0.0 to 1.0
     reasoning: str
     historical_context: str
+    technical_signals: Optional[TechnicalSignals] = None
     prediction_hash: Optional[str] = None
     tx_hash: Optional[str] = None
 

@@ -18,6 +18,8 @@ def parse_feed_date(entry) -> datetime:
     Parse date from feed entry with proper timezone handling.
     Returns datetime in local time for accurate display.
     """
+    now = datetime.now()
+    
     try:
         # First try raw published string with timezone info
         raw_pub = entry.get("published", "")
@@ -25,23 +27,34 @@ def parse_feed_date(entry) -> datetime:
             try:
                 # email.utils handles RFC 2822 dates with timezone
                 dt = parsedate_to_datetime(raw_pub)
-                # Convert to system local time (handles timezone properly)
-                dt_local = dt.astimezone(tz=None)
+                # Convert to local timezone (Turkey UTC+3)
+                local_tz = timezone(timedelta(hours=3))
+                dt_local = dt.astimezone(local_tz)
                 # Return as naive datetime for compatibility
-                return dt_local.replace(tzinfo=None)
+                result = dt_local.replace(tzinfo=None)
+                # Sanity check: date shouldn't be in the future
+                if result > now:
+                    return now
+                return result
             except:
                 pass
         
-        # Fallback to parsed tuple (feedparser may already adjust for UTC)
+        # Fallback to parsed tuple (feedparser parses to UTC struct_time)
         published = entry.get("published_parsed")
         if published:
-            # published_parsed is struct_time in UTC, add 3 hours for Turkey
-            dt = datetime(*published[:6])
-            return dt + timedelta(hours=3)  # UTC+3 for Turkey
+            # published_parsed is struct_time in UTC, convert to local (UTC+3)
+            dt = datetime(*published[:6], tzinfo=timezone.utc)
+            local_tz = timezone(timedelta(hours=3))
+            dt_local = dt.astimezone(local_tz)
+            result = dt_local.replace(tzinfo=None)
+            # Sanity check: date shouldn't be in the future
+            if result > now:
+                return now
+            return result
     except:
         pass
     
-    return datetime.now()
+    return now
 
 
 
@@ -171,12 +184,23 @@ async def fetch_cryptocompare_news() -> List[NewsItem]:
                     # Detect crypto symbol from title/body
                     symbol = detect_symbol(f"{title} {body}", "crypto")
                     
+                    # CryptoCompare returns UTC timestamp, convert to local time (UTC+3)
+                    pub_timestamp = news.get("published_on", datetime.now().timestamp())
+                    pub_dt_utc = datetime.fromtimestamp(pub_timestamp, tz=timezone.utc)
+                    local_tz = timezone(timedelta(hours=3))
+                    pub_dt_local = pub_dt_utc.astimezone(local_tz).replace(tzinfo=None)
+                    
+                    # Sanity check: date shouldn't be in the future
+                    now = datetime.now()
+                    if pub_dt_local > now:
+                        pub_dt_local = now
+                    
                     items.append(NewsItem(
                         id=generate_news_id(title, news.get("source", "")),
                         title=title,
                         summary=body[:200] + "..." if len(body) > 200 else body,
                         source=news.get("source", "CryptoCompare"),
-                        published_at=datetime.fromtimestamp(news.get("published_on", datetime.now().timestamp())),
+                        published_at=pub_dt_local,
                         symbol=symbol,
                         asset_type="crypto",
                         url=news.get("url", "")

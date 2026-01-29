@@ -15,7 +15,8 @@ import {
     Target,
     Sparkles,
     CheckCircle2,
-    LinkIcon
+    LinkIcon,
+    Activity
 } from 'lucide-react';
 
 export default function OraclePanel() {
@@ -62,10 +63,10 @@ export default function OraclePanel() {
     return (
         <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="p-4 border-b border-oracle-border flex items-center gap-2">
-                <Brain className="w-5 h-5 text-oracle-accent" />
-                <h2 className="font-semibold text-white">The Oracle</h2>
-                <Sparkles className="w-4 h-4 text-purple-400 ml-1" />
+            <div className="p-4 border-b border-oracle-border flex items-center gap-2 bg-gradient-to-r from-oracle-dark via-oracle-dark to-pink/5">
+                <Brain className="w-5 h-5 text-pink" />
+                <h2 className="font-semibold bg-gradient-to-r from-white to-pink bg-clip-text text-transparent">The Oracle</h2>
+                <Sparkles className="w-4 h-4 text-pink ml-1 animate-pulse" />
             </div>
 
             {/* Content */}
@@ -106,10 +107,10 @@ export default function OraclePanel() {
 
                         {/* Sentiment Card */}
                         <div className={`p-4 rounded-xl border ${analysis.sentiment === 'bullish'
-                                ? 'bg-oracle-bullish/10 border-oracle-bullish/30 glow-bullish'
-                                : analysis.sentiment === 'bearish'
-                                    ? 'bg-oracle-bearish/10 border-oracle-bearish/30 glow-bearish'
-                                    : 'bg-oracle-neutral/10 border-oracle-neutral/30'
+                            ? 'bg-oracle-bullish/10 border-oracle-bullish/30 glow-bullish'
+                            : analysis.sentiment === 'bearish'
+                                ? 'bg-oracle-bearish/10 border-oracle-bearish/30 glow-bearish'
+                                : 'bg-oracle-neutral/10 border-oracle-neutral/30'
                             }`}>
                             <div className="flex items-center justify-between mb-3">
                                 <div className={`flex items-center gap-2 ${getSentimentColor(analysis.sentiment)}`}>
@@ -125,8 +126,8 @@ export default function OraclePanel() {
                         {/* Reasoning */}
                         <div className="p-4 rounded-xl bg-oracle-card border border-oracle-border">
                             <div className="flex items-center gap-2 mb-3">
-                                <Target className="w-4 h-4 text-oracle-accent" />
-                                <h4 className="font-medium text-white">Analysis</h4>
+                                <Target className="w-4 h-4 text-cyan" />
+                                <h4 className="font-medium text-cyan">Analysis</h4>
                             </div>
                             <p className="text-sm text-gray-300 leading-relaxed">
                                 {analysis.reasoning}
@@ -136,14 +137,63 @@ export default function OraclePanel() {
                         {/* Historical Context */}
                         <div className="p-4 rounded-xl bg-oracle-card border border-oracle-border">
                             <div className="flex items-center gap-2 mb-3">
-                                <History className="w-4 h-4 text-purple-400" />
-                                <h4 className="font-medium text-white">Historical Context</h4>
+                                <History className="w-4 h-4 text-amber" />
+                                <h4 className="font-medium text-amber">Historical Context</h4>
                             </div>
                             <p className="text-sm text-gray-300 leading-relaxed">
                                 {analysis.historical_context}
                             </p>
                         </div>
+                        {/* Technical Analysis */}
+                        {analysis.technical_signals && (
+                            <div className="p-4 rounded-xl bg-oracle-card border border-oracle-border">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Activity className="w-4 h-4 text-cyan" />
+                                    <h4 className="font-medium text-cyan">Technical Analysis</h4>
+                                </div>
+                                <div className="space-y-3">
+                                    {/* RSI */}
+                                    <div className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
+                                        <span className="text-gray-400">RSI Signal</span>
+                                        <span className="text-white font-medium">{analysis.technical_signals.rsi_signal}</span>
+                                    </div>
 
+                                    {/* Supports */}
+                                    <div className="text-sm">
+                                        <span className="text-gray-400 block mb-1">Support Levels</span>
+                                        <div className="flex gap-2">
+                                            {analysis.technical_signals.support_levels.map((level, i) => (
+                                                <span key={i} className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs font-mono">
+                                                    {level}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Resistances */}
+                                    <div className="text-sm">
+                                        <span className="text-gray-400 block mb-1">Resistance Levels</span>
+                                        <div className="flex gap-2">
+                                            {analysis.technical_signals.resistance_levels.map((level, i) => (
+                                                <span key={i} className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-mono">
+                                                    {level}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Target */}
+                                    {analysis.technical_signals.target_price && (
+                                        <div className="mt-2 pt-2 border-t border-white/5">
+                                            <span className="text-xs text-gray-500 block mb-1">Target Price</span>
+                                            <span className="text-oracle-bullish font-mono font-bold">
+                                                {analysis.technical_signals.target_price}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         {/* Prediction Hash */}
                         {analysis.prediction_hash && (
                             <div className="p-3 rounded-lg bg-oracle-darker border border-oracle-border">
@@ -153,51 +203,21 @@ export default function OraclePanel() {
                                 </p>
                             </div>
                         )}
+
+                        {/* Trading Signal */}
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-oracle-darker border border-oracle-border">
+                            <span className="text-sm text-gray-400">Trading Signal</span>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${analysis.sentiment === 'bullish' ? 'bg-oracle-bullish/20 text-oracle-bullish' :
+                                analysis.sentiment === 'bearish' ? 'bg-oracle-bearish/20 text-oracle-bearish' :
+                                    'bg-oracle-neutral/20 text-oracle-neutral'
+                                }`}>
+                                {analysis.sentiment === 'bullish' ? 'STRONG BUY' :
+                                    analysis.sentiment === 'bearish' ? 'STRONG SELL' : 'HOLD'}
+                            </span>
+                        </div>
                     </div>
                 ) : null}
             </div>
-
-            {/* Blockchain Verification Footer */}
-            {analysis && (
-                <div className="p-4 border-t border-oracle-border bg-oracle-dark/50">
-                    {txHash ? (
-                        <div className="flex items-center gap-2 p-3 rounded-lg bg-oracle-bullish/10 border border-oracle-bullish/30">
-                            <CheckCircle2 className="w-5 h-5 text-oracle-bullish" />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-oracle-bullish">Verified on Chain</p>
-                                <p className="text-xs text-gray-400 truncate font-mono">{txHash}</p>
-                            </div>
-                            <a
-                                href={`https://sepolia.etherscan.io/tx/${txHash}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-2 rounded-lg hover:bg-oracle-card transition-colors"
-                            >
-                                <ExternalLink className="w-4 h-4 text-gray-400" />
-                            </a>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={handleVerifyOnChain}
-                            disabled={isVerifying}
-                            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-oracle-accent to-purple-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                        >
-                            {isVerifying ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                    Verifying...
-                                </>
-                            ) : (
-                                <>
-                                    <Shield className="w-5 h-5" />
-                                    Verify on Blockchain
-                                    <LinkIcon className="w-4 h-4 ml-1" />
-                                </>
-                            )}
-                        </button>
-                    )}
-                </div>
-            )}
         </div>
     );
 }

@@ -224,6 +224,8 @@ async def analyze_news(request: AnalysisRequest):
             historical_context += f"Key factors: {', '.join(key_factors[:3])}. "
         if price_impact:
             historical_context += f"Expected impact: {price_impact}"
+            
+        technical_signals = analysis.get("technical_signals")
     else:
         # Fallback to mock analysis
         sentiments = ["bullish", "bearish", "neutral"]
@@ -231,6 +233,7 @@ async def analyze_news(request: AnalysisRequest):
         confidence = round(random.uniform(0.65, 0.95), 2)
         reasoning = f"Based on analysis of '{news_item.title}', market indicators suggest a {sentiment} outlook."
         historical_context = f"Similar news patterns have resulted in average price movements of +/-8.5% within 7 days."
+        technical_signals = None
     
     # Generate prediction hash
     prediction_hash = generate_prediction_hash(news_item.id, sentiment, confidence)
@@ -240,8 +243,9 @@ async def analyze_news(request: AnalysisRequest):
         confidence=confidence,
         reasoning=reasoning,
         historical_context=historical_context,
+        technical_signals=technical_signals,
         prediction_hash=prediction_hash,
-        tx_hash=None  # Will be populated after blockchain verification
+        tx_hash=None
     )
 
 

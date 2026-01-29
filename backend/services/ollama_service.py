@@ -14,28 +14,47 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 MODEL_NAME = "llama3.1:8b"
 
 
-# Financial analysis system prompt
-SYSTEM_PROMPT = """You are an expert financial analyst AI specializing in cryptocurrency and stock market analysis. 
-Your task is to analyze news headlines and provide accurate sentiment analysis with trading insights.
+# Financial analysis system prompt - Enhanced for accuracy
+SYSTEM_PROMPT = """You are a senior quantitative financial analyst with 15+ years experience in cryptocurrency and equity markets.
+Your role is to provide institutional-grade sentiment analysis based on news content.
 
-You MUST respond in valid JSON format with the following structure:
+CRITICAL ANALYSIS RULES:
+1. NEVER guess - base analysis ONLY on the actual news content provided
+2. Consider market psychology: how will traders react to this news?
+3. Evaluate the SOURCE credibility (major outlets vs unknown sources)
+4. Assess the NEWS IMPACT MAGNITUDE (breaking news vs routine update)
+5. Consider TIMING: earnings season, market hours, macro events
+
+SENTIMENT CRITERIA:
+- BULLISH: News clearly indicates positive price catalyst (partnerships, adoption, earnings beat, regulatory approval)
+- BEARISH: News indicates negative catalyst (hacks, regulatory crackdown, earnings miss, executive departure)
+- NEUTRAL: Mixed signals, routine updates, or unclear market implications
+
+CONFIDENCE GUIDELINES:
+- 0.90-0.95: Breaking news with clear, immediate market impact
+- 0.80-0.89: Strong directional signal with some uncertainty
+- 0.70-0.79: Moderate signal, multiple interpretations possible
+- 0.60-0.69: Weak signal, high uncertainty, conflicting factors
+
+You MUST respond in valid JSON format:
 {
     "sentiment": "bullish" | "bearish" | "neutral",
-    "confidence": 0.0 to 1.0,
-    "reasoning": "Brief explanation of your analysis",
+    "confidence": 0.60 to 0.95,
+    "reasoning": "2-3 sentence analysis explaining WHY this news affects the asset price",
     "key_factors": ["factor1", "factor2", "factor3"],
-    "price_impact": "short explanation of expected price movement",
+    "price_impact": "Expected short-term price action description",
     "risk_level": "low" | "medium" | "high",
-    "time_horizon": "short-term" | "medium-term" | "long-term"
+    "time_horizon": "immediate" | "short-term" | "medium-term" | "long-term",
+    "trading_signal": "strong_buy" | "buy" | "hold" | "sell" | "strong_sell",
+    "technical_signals": {
+        "rsi_signal": "Overbought" | "Oversold" | "Neutral" | "Bullish Divergence" | "Bearish Divergence",
+        "support_levels": ["level1", "level2"],
+        "resistance_levels": ["level1", "level2"],
+        "target_price": "Expected price target range (e.g., $45,000 - $48,000)"
+    }
 }
 
-Be objective and base your analysis on:
-1. The actual content of the news
-2. Historical market patterns for similar news
-3. Technical and fundamental implications
-4. Market sentiment indicators
-
-Always provide a confidence score between 0.65 and 0.95 - avoid extremes unless absolutely certain."""
+IMPORTANT: Your analysis will be used for real trading decisions. Be precise, objective, and accountable."""
 
 
 async def check_ollama_health() -> bool:
@@ -66,17 +85,33 @@ async def analyze_news_with_ollama(
     Returns:
         Analysis result dictionary
     """
-    # Construct the analysis prompt
-    user_prompt = f"""Analyze the following {asset_type} news for {symbol}:
+    # Extract clean symbol name
+    clean_symbol = symbol.split(':')[-1] if ':' in symbol else symbol
+    asset_name = "cryptocurrency" if asset_type == "crypto" else "stock"
+    
+    # Construct detailed analysis prompt
+    user_prompt = f"""ASSET: {clean_symbol} ({asset_name})
+SYMBOL: {symbol}
 
-HEADLINE: {title}
+NEWS HEADLINE:
+"{title}"
 
-SUMMARY: {summary}
+NEWS CONTENT:
+{summary}
 
-Provide your sentiment analysis in the exact JSON format specified. Focus on accuracy and actionable insights."""
+---
+TASK: Analyze this news and determine its impact on {clean_symbol} price.
+
+Consider:
+1. Is this news MATERIAL to the price? Will traders care?
+2. What is the DIRECTION of impact (bullish/bearish/neutral)?
+3. How CONFIDENT are you based on the clarity of the news?
+4. What is the expected TIME HORIZON for price impact?
+
+Respond with ONLY the JSON object, no additional text."""
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=90.0) as client:
             response = await client.post(
                 f"{OLLAMA_BASE_URL}/api/generate",
                 json={
@@ -85,9 +120,11 @@ Provide your sentiment analysis in the exact JSON format specified. Focus on acc
                     "system": SYSTEM_PROMPT,
                     "stream": False,
                     "options": {
-                        "temperature": 0.3,  # Lower = more consistent/accurate
-                        "top_p": 0.9,
-                        "num_predict": 500,
+                        "temperature": 0.2,  # Very low for consistency
+                        "top_p": 0.85,
+                        "top_k": 40,
+                        "num_predict": 600,
+                        "repeat_penalty": 1.1,
                     }
                 }
             )
@@ -142,7 +179,8 @@ def parse_llm_response(raw_response: str) -> dict:
                 "price_impact": analysis.get("price_impact", ""),
                 "risk_level": analysis.get("risk_level", "medium"),
                 "time_horizon": analysis.get("time_horizon", "short-term"),
-                "raw_response": raw_response[:500]  # Keep for debugging
+                "trading_signal": analysis.get("trading_signal", "hold"),
+                "technical_signals": analysis.get("technical_signals", None),
             }
     except (json.JSONDecodeError, ValueError) as e:
         print(f"JSON parse error: {e}")

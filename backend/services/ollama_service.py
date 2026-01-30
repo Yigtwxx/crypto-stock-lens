@@ -50,9 +50,16 @@ You MUST respond in valid JSON format:
         "rsi_signal": "Overbought" | "Oversold" | "Neutral" | "Bullish Divergence" | "Bearish Divergence",
         "support_levels": ["level1", "level2"],
         "resistance_levels": ["level1", "level2"],
-        "target_price": "Expected price target range (e.g., $45,000 - $48,000)"
+        "target_price": "Expected price target range based on current price"
     }
 }
+
+TECHNICAL ANALYSIS RULES:
+- Support levels MUST be BELOW the current price (typically 2-10% below)
+- Resistance levels MUST be ABOVE the current price (typically 2-10% above)
+- Target price should be a realistic short-term range based on sentiment and volatility
+- Always use the CURRENT PRICE provided as the reference point
+- Format price levels with appropriate precision (e.g., $1.75, $1.82 for low-priced assets)
 
 IMPORTANT: Your analysis will be used for real trading decisions. Be precise, objective, and accountable."""
 
@@ -71,7 +78,8 @@ async def analyze_news_with_ollama(
     title: str,
     summary: str,
     symbol: str,
-    asset_type: str
+    asset_type: str,
+    current_price: float = None
 ) -> dict:
     """
     Analyze a news item using Ollama LLM.
@@ -89,9 +97,14 @@ async def analyze_news_with_ollama(
     clean_symbol = symbol.split(':')[-1] if ':' in symbol else symbol
     asset_name = "cryptocurrency" if asset_type == "crypto" else "stock"
     
-    # Construct detailed analysis prompt
+    # Construct detailed analysis prompt with current price context
+    price_context = ""
+    if current_price and current_price > 0:
+        price_context = f"\nCURRENT PRICE: ${current_price:.4f}\n\nIMPORTANT: When calculating technical levels, use ${current_price:.4f} as the reference:\n- Support levels should be 2-8% BELOW current price (e.g., ${current_price * 0.95:.4f}, ${current_price * 0.92:.4f})\n- Resistance levels should be 2-8% ABOVE current price (e.g., ${current_price * 1.05:.4f}, ${current_price * 1.08:.4f})\n- Target price should be a realistic range near current price"
+    
     user_prompt = f"""ASSET: {clean_symbol} ({asset_name})
 SYMBOL: {symbol}
+{price_context}
 
 NEWS HEADLINE:
 "{title}"
@@ -107,6 +120,7 @@ Consider:
 2. What is the DIRECTION of impact (bullish/bearish/neutral)?
 3. How CONFIDENT are you based on the clarity of the news?
 4. What is the expected TIME HORIZON for price impact?
+5. For technical_signals, calculate support/resistance relative to the CURRENT PRICE provided above.
 
 Respond with ONLY the JSON object, no additional text."""
 

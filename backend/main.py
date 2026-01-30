@@ -206,7 +206,8 @@ async def analyze_news(request: AnalysisRequest):
             title=news_item.title,
             summary=news_item.summary,
             symbol=news_item.symbol,
-            asset_type=news_item.asset_type
+            asset_type=news_item.asset_type,
+            current_price=request.current_price
         )
         
         sentiment = analysis.get("sentiment", "neutral")

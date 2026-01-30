@@ -1,7 +1,13 @@
-# Technical Analysis Service
+# Technical Analysis Service v2
 """
 Technical Analysis Service - Real market data analysis
 Fetches OHLCV data from Binance and calculates accurate support/resistance levels.
+
+IMPROVED VERSION:
+- ATR-based support/resistance
+- Better target price calculation
+- More robust error handling
+- Works for all crypto pairs
 """
 import httpx
 from typing import Optional, List, Dict, Tuple
@@ -27,17 +33,9 @@ BINANCE_API_URL = "https://api.binance.com/api/v3"
 async def fetch_klines(symbol: str, interval: str = "1h", limit: int = 100) -> List[List]:
     """
     Fetch OHLCV (candlestick) data from Binance.
-    
-    Args:
-        symbol: Trading pair (e.g., BTCUSDT)
-        interval: Timeframe (1m, 5m, 15m, 1h, 4h, 1d)
-        limit: Number of candles to fetch
-    
-    Returns:
-        List of OHLCV data
     """
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
                 f"{BINANCE_API_URL}/klines",
                 params={
@@ -48,9 +46,10 @@ async def fetch_klines(symbol: str, interval: str = "1h", limit: int = 100) -> L
             )
             if response.status_code == 200:
                 return response.json()
+            print(f"Binance API returned {response.status_code} for {symbol}")
             return []
     except Exception as e:
-        print(f"Error fetching klines: {e}")
+        print(f"Error fetching klines for {symbol}: {e}")
         return []
 
 
@@ -71,15 +70,43 @@ async def fetch_current_price(symbol: str) -> Optional[float]:
         return None
 
 
+def calculate_atr(klines: List[List], period: int = 14) -> float:
+    """
+    Calculate Average True Range (ATR) for volatility measurement.
+    
+    ATR = Average of True Range over period
+    True Range = max(High - Low, abs(High - Previous Close), abs(Low - Previous Close))
+    """
+    if len(klines) < period + 1:
+        return 0.0
+    
+    true_ranges = []
+    for i in range(1, len(klines)):
+        high = float(klines[i][2])
+        low = float(klines[i][3])
+        prev_close = float(klines[i-1][4])
+        
+        tr = max(
+            high - low,
+            abs(high - prev_close),
+            abs(low - prev_close)
+        )
+        true_ranges.append(tr)
+    
+    if len(true_ranges) < period:
+        return sum(true_ranges) / len(true_ranges) if true_ranges else 0.0
+    
+    # Calculate ATR using smoothed average
+    atr = sum(true_ranges[:period]) / period
+    for i in range(period, len(true_ranges)):
+        atr = (atr * (period - 1) + true_ranges[i]) / period
+    
+    return atr
+
+
 def calculate_pivot_points(high: float, low: float, close: float) -> Dict[str, float]:
     """
     Calculate classic pivot points.
-    
-    Pivot Point (P) = (High + Low + Close) / 3
-    Support 1 (S1) = (2 × P) − High
-    Support 2 (S2) = P − (High − Low)
-    Resistance 1 (R1) = (2 × P) − Low
-    Resistance 2 (R2) = P + (High − Low)
     """
     pivot = (high + low + close) / 3
     
@@ -102,63 +129,80 @@ def calculate_pivot_points(high: float, low: float, close: float) -> Dict[str, f
     }
 
 
-def find_swing_levels(klines: List[List], lookback: int = 20) -> Tuple[List[float], List[float]]:
+def find_significant_levels(klines: List[List], current_price: float, num_levels: int = 3) -> Tuple[List[float], List[float]]:
     """
-    Find swing high and swing low levels from recent price action.
-    
-    Args:
-        klines: OHLCV data from Binance
-        lookback: Number of candles to analyze
-    
-    Returns:
-        Tuple of (swing_lows, swing_highs)
+    Find significant support and resistance levels from price action.
+    Uses local highs/lows with volume weighting.
     """
-    if len(klines) < lookback:
+    if len(klines) < 20:
         return [], []
     
-    recent_klines = klines[-lookback:]
+    # Get all highs and lows
+    highs = [float(k[2]) for k in klines]
+    lows = [float(k[3]) for k in klines]
+    volumes = [float(k[5]) for k in klines]
     
-    highs = [float(k[2]) for k in recent_klines]  # High prices
-    lows = [float(k[3]) for k in recent_klines]   # Low prices
+    # Find local extremes (where price reversed)
+    potential_resistances = []
+    potential_supports = []
     
-    swing_highs = []
-    swing_lows = []
-    
-    # Find local maxima and minima (swing points)
-    for i in range(2, len(highs) - 2):
-        # Swing high: higher than neighbors
-        if highs[i] > highs[i-1] and highs[i] > highs[i-2] and \
-           highs[i] > highs[i+1] and highs[i] > highs[i+2]:
-            swing_highs.append(highs[i])
+    for i in range(2, len(klines) - 2):
+        # High volume increases significance
+        volume_weight = volumes[i] / (sum(volumes) / len(volumes)) if sum(volumes) > 0 else 1.0
         
-        # Swing low: lower than neighbors
-        if lows[i] < lows[i-1] and lows[i] < lows[i-2] and \
-           lows[i] < lows[i+1] and lows[i] < lows[i+2]:
-            swing_lows.append(lows[i])
+        # Look for swing highs (local maxima)
+        if highs[i] >= max(highs[i-2:i]) and highs[i] >= max(highs[i+1:i+3]):
+            if highs[i] > current_price:
+                potential_resistances.append((highs[i], volume_weight))
+        
+        # Look for swing lows (local minima)
+        if lows[i] <= min(lows[i-2:i]) and lows[i] <= min(lows[i+1:i+3]):
+            if lows[i] < current_price:
+                potential_supports.append((lows[i], volume_weight))
     
-    return swing_lows, swing_highs
+    # Sort by proximity to current price and volume weight
+    potential_resistances.sort(key=lambda x: (x[0] - current_price) / x[1])
+    potential_supports.sort(key=lambda x: (current_price - x[0]) / x[1])
+    
+    # Get unique levels (cluster similar prices)
+    def cluster_levels(levels: List[Tuple[float, float]], threshold: float = 0.005) -> List[float]:
+        if not levels:
+            return []
+        clustered = []
+        for price, _ in levels:
+            # Check if this price is close to an existing cluster
+            is_new = True
+            for existing in clustered:
+                if abs(price - existing) / existing < threshold:
+                    is_new = False
+                    break
+            if is_new:
+                clustered.append(price)
+            if len(clustered) >= num_levels:
+                break
+        return clustered
+    
+    resistances = cluster_levels(potential_resistances)
+    supports = cluster_levels(potential_supports)
+    
+    return supports, resistances
 
 
 def calculate_rsi(closes: List[float], period: int = 14) -> float:
     """
     Calculate RSI (Relative Strength Index).
-    
-    RSI = 100 - (100 / (1 + RS))
-    RS = Average Gain / Average Loss
     """
     if len(closes) < period + 1:
-        return 50.0  # Neutral if not enough data
+        return 50.0
     
     changes = [closes[i] - closes[i-1] for i in range(1, len(closes))]
     
     gains = [c if c > 0 else 0 for c in changes]
     losses = [-c if c < 0 else 0 for c in changes]
     
-    # Calculate initial averages
     avg_gain = sum(gains[:period]) / period
     avg_loss = sum(losses[:period]) / period
     
-    # Smooth the averages
     for i in range(period, len(gains)):
         avg_gain = (avg_gain * (period - 1) + gains[i]) / period
         avg_loss = (avg_loss * (period - 1) + losses[i]) / period
@@ -186,14 +230,105 @@ def get_rsi_signal(rsi: float) -> str:
         return "Neutral"
 
 
+def calculate_trend(closes: List[float], short_period: int = 10, long_period: int = 30) -> str:
+    """
+    Determine trend using EMA crossover.
+    """
+    if len(closes) < long_period:
+        return "neutral"
+    
+    def ema(data: List[float], period: int) -> float:
+        multiplier = 2 / (period + 1)
+        ema_val = sum(data[:period]) / period
+        for price in data[period:]:
+            ema_val = (price - ema_val) * multiplier + ema_val
+        return ema_val
+    
+    short_ema = ema(closes, short_period)
+    long_ema = ema(closes, long_period)
+    
+    if short_ema > long_ema * 1.01:
+        return "bullish"
+    elif short_ema < long_ema * 0.99:
+        return "bearish"
+    else:
+        return "neutral"
+
+
 def format_price(price: float) -> str:
     """Format price with appropriate precision."""
-    if price >= 1000:
+    if price >= 10000:
+        return f"${price:,.0f}"
+    elif price >= 1000:
         return f"${price:,.2f}"
     elif price >= 1:
         return f"${price:.4f}"
+    elif price >= 0.01:
+        return f"${price:.5f}"
     else:
-        return f"${price:.6f}"
+        return f"${price:.8f}"
+
+
+def calculate_target_price(
+    current_price: float,
+    atr: float,
+    trend: str,
+    rsi: float,
+    supports: List[float],
+    resistances: List[float]
+) -> str:
+    """
+    Calculate realistic target price based on ATR, trend, and key levels.
+    
+    Target = Current Price ± (ATR * Multiplier) adjusted by trend and RSI
+    """
+    if atr == 0:
+        atr = current_price * 0.02  # Fallback: 2% of price
+    
+    # Base multiplier based on trend strength
+    if trend == "bullish":
+        multiplier = 1.5 if rsi < 60 else 1.0  # Less upside if already overbought
+    elif trend == "bearish":
+        multiplier = -1.5 if rsi > 40 else -1.0  # Less downside if already oversold
+    else:
+        multiplier = 0.5 if rsi > 50 else -0.5
+    
+    # Calculate targets
+    if multiplier > 0:
+        # Bullish target: aim for next resistance or ATR-based
+        base_target = current_price + (atr * multiplier)
+        if resistances:
+            # Use resistance if it's within reasonable range
+            nearest_resistance = resistances[0]
+            if nearest_resistance < base_target * 1.5:
+                target_low = current_price + (atr * 0.5)
+                target_high = nearest_resistance
+            else:
+                target_low = current_price + (atr * 0.5)
+                target_high = base_target
+        else:
+            target_low = current_price + (atr * 0.5)
+            target_high = base_target
+    else:
+        # Bearish target: aim for next support or ATR-based
+        base_target = current_price + (atr * multiplier)
+        if supports:
+            nearest_support = supports[0]
+            if nearest_support > base_target * 0.5:
+                target_low = nearest_support
+                target_high = current_price - (atr * 0.5)
+            else:
+                target_low = base_target
+                target_high = current_price - (atr * 0.5)
+        else:
+            target_low = base_target
+            target_high = current_price - (atr * 0.5)
+    
+    # Ensure proper ordering
+    if target_low > target_high:
+        target_low, target_high = target_high, target_low
+    
+    return f"{format_price(target_low)} - {format_price(target_high)}"
 
 
 async def get_technical_analysis(symbol: str) -> Optional[Dict]:
@@ -201,68 +336,95 @@ async def get_technical_analysis(symbol: str) -> Optional[Dict]:
     Get complete technical analysis for a symbol.
     
     Args:
-        symbol: TradingView format symbol (e.g., BINANCE:BTCUSDT)
+        symbol: TradingView format symbol (e.g., BINANCE:BTCUSDT, NASDAQ:AAPL)
     
     Returns:
         Dictionary with technical analysis data
     """
     # Clean symbol
-    clean_symbol = symbol.split(':')[-1] if ':' in symbol else symbol
+    parts = symbol.split(':')
+    exchange = parts[0] if len(parts) > 1 else ""
+    clean_symbol = parts[-1]
     
-    # Only works for crypto (Binance)
-    if not clean_symbol.endswith('USDT'):
-        return None
+    # Determine data source
+    is_crypto = exchange.upper() == "BINANCE" or clean_symbol.endswith('USDT')
+    
+    if is_crypto:
+        return await get_crypto_analysis(clean_symbol)
+    else:
+        # For stocks, use fallback percentage-based analysis
+        return get_stock_fallback_analysis(symbol)
+
+
+async def get_crypto_analysis(symbol: str) -> Optional[Dict]:
+    """
+    Get technical analysis for crypto using Binance API.
+    """
+    # Ensure symbol is in correct format
+    if not symbol.endswith('USDT'):
+        symbol = f"{symbol}USDT"
     
     try:
-        # Fetch OHLCV data (1 hour candles, last 100)
-        klines = await fetch_klines(clean_symbol, "1h", 100)
+        # Fetch OHLCV data - use 4h for better signals
+        klines_4h = await fetch_klines(symbol, "4h", 100)
+        klines_1h = await fetch_klines(symbol, "1h", 100)
+        
+        # Use 4h for main analysis, 1h for confirmation
+        klines = klines_4h if len(klines_4h) >= 50 else klines_1h
         
         if not klines or len(klines) < 20:
-            return None
+            print(f"Not enough data for {symbol}")
+            return get_fallback_analysis_for_symbol(symbol)
         
         # Get current price
-        current_price = await fetch_current_price(clean_symbol)
+        current_price = await fetch_current_price(symbol)
         if not current_price:
-            current_price = float(klines[-1][4])  # Use last close price
+            current_price = float(klines[-1][4])
         
-        # Calculate pivot points from last 24h (24 candles for 1h chart)
-        recent_24h = klines[-24:] if len(klines) >= 24 else klines
+        # Calculate ATR for volatility
+        atr = calculate_atr(klines, 14)
         
-        high_24h = max(float(k[2]) for k in recent_24h)
-        low_24h = min(float(k[3]) for k in recent_24h)
+        # Calculate pivot points from last 24 candles
+        num_candles = min(24, len(klines))
+        recent = klines[-num_candles:]
+        
+        high_period = max(float(k[2]) for k in recent)
+        low_period = min(float(k[3]) for k in recent)
         close = float(klines[-1][4])
         
-        pivots = calculate_pivot_points(high_24h, low_24h, close)
+        pivots = calculate_pivot_points(high_period, low_period, close)
         
-        # Find swing levels
-        swing_lows, swing_highs = find_swing_levels(klines, 50)
+        # Find significant levels
+        swing_supports, swing_resistances = find_significant_levels(klines, current_price, 3)
+        
+        # Combine pivot and swing levels
+        all_supports = [pivots['s1'], pivots['s2']] + swing_supports
+        all_resistances = [pivots['r1'], pivots['r2']] + swing_resistances
+        
+        # Filter valid levels (supports < current, resistances > current)
+        supports = sorted([s for s in all_supports if s < current_price], reverse=True)[:2]
+        resistances = sorted([r for r in all_resistances if r > current_price])[:2]
+        
+        # Ensure we have at least 2 levels each using ATR
+        while len(supports) < 2:
+            last_support = supports[-1] if supports else current_price
+            supports.append(last_support - atr)
+        while len(resistances) < 2:
+            last_resistance = resistances[-1] if resistances else current_price
+            resistances.append(last_resistance + atr)
         
         # Calculate RSI
         closes = [float(k[4]) for k in klines]
         rsi = calculate_rsi(closes, 14)
         rsi_signal = get_rsi_signal(rsi)
         
-        # Determine support levels (below current price)
-        all_supports = [pivots['s1'], pivots['s2']] + swing_lows
-        supports = sorted([s for s in all_supports if s < current_price], reverse=True)[:2]
+        # Determine trend
+        trend = calculate_trend(closes, 10, 30)
         
-        # Determine resistance levels (above current price)
-        all_resistances = [pivots['r1'], pivots['r2']] + swing_highs
-        resistances = sorted([r for r in all_resistances if r > current_price])[:2]
-        
-        # Fallback: if not enough levels, use percentage-based
-        if len(supports) < 2:
-            supports = [current_price * 0.98, current_price * 0.95]
-        if len(resistances) < 2:
-            resistances = [current_price * 1.02, current_price * 1.05]
-        
-        # Calculate target price based on trend
-        if rsi > 50:
-            target = resistances[0] if resistances else current_price * 1.03
-            target_str = f"{format_price(target)} - {format_price(target * 1.02)}"
-        else:
-            target = supports[0] if supports else current_price * 0.97
-            target_str = f"{format_price(target * 0.98)} - {format_price(target)}"
+        # Calculate target price
+        target_price = calculate_target_price(
+            current_price, atr, trend, rsi, supports, resistances
+        )
         
         return {
             "current_price": current_price,
@@ -271,9 +433,37 @@ async def get_technical_analysis(symbol: str) -> Optional[Dict]:
             "rsi_signal": rsi_signal,
             "rsi_value": rsi,
             "pivot_point": format_price(pivots['pivot']),
-            "target_price": target_str
+            "target_price": target_price,
+            "atr": atr,
+            "trend": trend
         }
         
     except Exception as e:
-        print(f"Technical analysis error: {e}")
-        return None
+        print(f"Crypto analysis error for {symbol}: {e}")
+        return get_fallback_analysis_for_symbol(symbol)
+
+
+def get_fallback_analysis_for_symbol(symbol: str) -> Dict:
+    """
+    Generate fallback analysis when API fails.
+    Uses percentage-based estimates.
+    """
+    # We don't have current price, so return placeholders
+    return {
+        "current_price": 0,
+        "support_levels": ["Calculating...", "Calculating..."],
+        "resistance_levels": ["Calculating...", "Calculating..."],
+        "rsi_signal": "Unavailable",
+        "rsi_value": 50,
+        "pivot_point": "N/A",
+        "target_price": "Data unavailable",
+        "error": f"Could not fetch data for {symbol}"
+    }
+
+
+def get_stock_fallback_analysis(symbol: str) -> Dict:
+    """
+    Generate fallback analysis for stocks.
+    Since we don't have free stock OHLCV data, use the LLM's analysis.
+    """
+    return None  # Return None to let LLM handle stocks

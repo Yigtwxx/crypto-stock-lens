@@ -29,10 +29,10 @@ export default function NewsFeed() {
     useEffect(() => {
         loadNews(false); // Initial load with loading state
 
-        // Auto-refresh every 30 seconds (silent, no loading spinner)
+        // Auto-refresh every 15 seconds (silent, no loading spinner)
         const interval = setInterval(() => {
             loadNews(true); // Silent refresh
-        }, 30000);
+        }, 15000);
 
         return () => clearInterval(interval);
     }, []);

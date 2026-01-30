@@ -2,6 +2,11 @@
 Oracle-X Backend API
 FastAPI server providing news feeds, AI analysis, and blockchain verification.
 """
+# Suppress warnings before other imports
+import warnings
+warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +18,7 @@ from models.schemas import NewsItem, NewsResponse, AnalysisRequest, SentimentAna
 from services.news_service import fetch_all_news
 from services.ollama_service import analyze_news_with_ollama, generate_prediction_hash, check_ollama_health
 from services.technical_analysis_service import get_technical_analysis
+from services.rag_service import get_rag_context, store_news_with_outcome, get_collection_stats
 
 # Set to True to use real API data, False for mock data
 USE_REAL_API = True
@@ -208,30 +214,62 @@ async def analyze_news(request: AnalysisRequest):
         real_technical = await get_technical_analysis(news_item.symbol)
     
     if USE_OLLAMA_AI:
-        # Use real Ollama AI analysis (for sentiment only)
+        # Get RAG context from similar historical news
+        rag_context = get_rag_context(
+            title=news_item.title,
+            summary=news_item.summary,
+            asset_type=news_item.asset_type
+        )
+        
+        # Use Ollama AI analysis with RAG-enhanced context
         analysis = await analyze_news_with_ollama(
             title=news_item.title,
             summary=news_item.summary,
             symbol=news_item.symbol,
             asset_type=news_item.asset_type,
-            current_price=request.current_price
+            current_price=request.current_price,
+            rag_context=rag_context  # Include historical context
         )
         
         sentiment = analysis.get("sentiment", "neutral")
         confidence = analysis.get("confidence", 0.7)
         reasoning = analysis.get("reasoning", "Analysis completed.")
         
-        # Build historical context from AI analysis
+        # Build professional historical context
         key_factors = analysis.get("key_factors", [])
         price_impact = analysis.get("price_impact", "")
         risk_level = analysis.get("risk_level", "medium")
         time_horizon = analysis.get("time_horizon", "short-term")
         
-        historical_context = f"Risk Level: {risk_level.upper()} | Time Horizon: {time_horizon}. "
+        # Format risk level display
+        risk_labels = {
+            "low": "LOW",
+            "medium": "MEDIUM", 
+            "high": "HIGH"
+        }
+        risk_display = risk_labels.get(risk_level.lower(), "MEDIUM")
+        
+        # Format time horizon display
+        horizon_labels = {
+            "immediate": "Immediate (minutes to hours)",
+            "short-term": "Short-term (1-7 days)",
+            "medium-term": "Medium-term (1-4 weeks)",
+            "long-term": "Long-term (1+ months)"
+        }
+        horizon_display = horizon_labels.get(time_horizon.lower(), "Short-term (1-7 days)")
+        
+        # Build professional context string
+        context_parts = []
+        context_parts.append(f"Risk Level: {risk_display} | Time Horizon: {horizon_display}")
+        
         if key_factors:
-            historical_context += f"Key factors: {', '.join(key_factors[:3])}. "
+            factors_text = ", ".join(key_factors[:3])
+            context_parts.append(f"Key factors: {factors_text}")
+        
         if price_impact:
-            historical_context += f"Expected impact: {price_impact}"
+            context_parts.append(f"Expected impact: {price_impact}")
+        
+        historical_context = ". ".join(context_parts)
         
         # Use REAL technical data if available, otherwise fallback to LLM
         if real_technical:
@@ -254,6 +292,17 @@ async def analyze_news(request: AnalysisRequest):
     
     # Generate prediction hash
     prediction_hash = generate_prediction_hash(news_item.id, sentiment, confidence)
+    
+    # Store news and analysis in RAG for future learning
+    store_news_with_outcome(
+        news_id=news_item.id,
+        title=news_item.title,
+        summary=news_item.summary,
+        symbol=news_item.symbol,
+        asset_type=news_item.asset_type,
+        sentiment=sentiment,
+        confidence=confidence
+    )
     
     return SentimentAnalysis(
         sentiment=sentiment,
@@ -295,6 +344,18 @@ async def get_ollama_status():
         "model": "llama3.1:8b" if is_healthy else None,
         "ai_enabled": USE_OLLAMA_AI and is_healthy,
         "message": "Ollama AI is ready" if is_healthy else "Ollama is not available - using fallback analysis"
+    }
+
+
+@app.get("/api/rag/stats")
+async def get_rag_stats():
+    """Get RAG system statistics."""
+    stats = get_collection_stats()
+    return {
+        "rag_enabled": True,
+        "total_stored_news": stats.get("total_items", 0),
+        "status": stats.get("status", "unknown"),
+        "message": f"RAG system has {stats.get('total_items', 0)} historical news items for learning"
     }
 
 

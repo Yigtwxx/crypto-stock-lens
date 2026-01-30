@@ -29,10 +29,10 @@ export default function NewsFeed() {
     useEffect(() => {
         loadNews(false); // Initial load with loading state
 
-        // Auto-refresh every 5 seconds (silent, no loading spinner)
+        // Auto-refresh every 30 seconds (silent, no loading spinner)
         const interval = setInterval(() => {
             loadNews(true); // Silent refresh
-        }, 5000);
+        }, 30000);
 
         return () => clearInterval(interval);
     }, []);
@@ -43,7 +43,22 @@ export default function NewsFeed() {
         }
         try {
             const items = await fetchNews();
-            setNewsItems(items);
+
+            // Stable sort: by published_at (newest first), then by ID for consistency
+            const sortedItems = [...items].sort((a, b) => {
+                const dateA = new Date(a.published_at).getTime();
+                const dateB = new Date(b.published_at).getTime();
+
+                // Primary sort: by date (newest first)
+                if (dateB !== dateA) {
+                    return dateB - dateA;
+                }
+
+                // Secondary sort: by ID for stable ordering when dates are equal
+                return a.id.localeCompare(b.id);
+            });
+
+            setNewsItems(sortedItems);
         } catch (error) {
             console.error('Failed to load news:', error);
         } finally {
@@ -83,11 +98,24 @@ export default function NewsFeed() {
         return `${Math.floor(diffHours / 24)}d ago`;
     };
 
-    // Filter news items based on active filter
-    const filteredNews = newsItems.filter(news => {
-        if (activeFilter === 'all') return true;
-        return news.asset_type === activeFilter;
-    });
+    // Filter news items based on active filter, then ensure stable sort
+    const filteredNews = newsItems
+        .filter(news => {
+            if (activeFilter === 'all') return true;
+            return news.asset_type === activeFilter;
+        })
+        .sort((a, b) => {
+            const dateA = new Date(a.published_at).getTime();
+            const dateB = new Date(b.published_at).getTime();
+
+            // Primary sort: by date (newest first)
+            if (dateB !== dateA) {
+                return dateB - dateA;
+            }
+
+            // Secondary sort: by ID for stable ordering
+            return a.id.localeCompare(b.id);
+        });
 
     return (
         <div className="flex flex-col h-full">

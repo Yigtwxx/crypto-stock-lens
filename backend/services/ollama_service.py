@@ -72,16 +72,19 @@ async def analyze_news_with_ollama(
     summary: str,
     symbol: str,
     asset_type: str,
-    current_price: float = None
+    current_price: float = None,
+    rag_context: str = ""
 ) -> dict:
     """
-    Analyze a news item using Ollama LLM.
+    Analyze a news item using Ollama LLM with optional RAG context.
     
     Args:
         title: News headline
         summary: News summary/body
         symbol: Trading symbol (e.g., BINANCE:BTCUSDT)
         asset_type: "crypto" or "stock"
+        current_price: Current asset price for technical analysis
+        rag_context: Historical context from similar past news (RAG)
     
     Returns:
         Analysis result dictionary
@@ -95,9 +98,15 @@ async def analyze_news_with_ollama(
     if current_price and current_price > 0:
         price_context = f"\nCURRENT PRICE: ${current_price:.4f}\n\nIMPORTANT: When calculating technical levels, use ${current_price:.4f} as the reference:\n- Support levels should be 2-8% BELOW current price (e.g., ${current_price * 0.95:.4f}, ${current_price * 0.92:.4f})\n- Resistance levels should be 2-8% ABOVE current price (e.g., ${current_price * 1.05:.4f}, ${current_price * 1.08:.4f})\n- Target price should be a realistic range near current price"
     
+    # Include RAG context if available
+    rag_section = ""
+    if rag_context:
+        rag_section = f"\n\n{rag_context}\n\nUSE THE ABOVE HISTORICAL CONTEXT to inform your analysis. If similar past news had specific outcomes, factor that into your confidence and reasoning."
+    
     user_prompt = f"""ASSET: {clean_symbol} ({asset_name})
 SYMBOL: {symbol}
 {price_context}
+{rag_section}
 
 NEWS HEADLINE:
 "{title}"
@@ -113,7 +122,7 @@ Consider:
 2. What is the DIRECTION of impact (bullish/bearish/neutral)?
 3. How CONFIDENT are you based on the clarity of the news?
 4. What is the expected TIME HORIZON for price impact?
-5. For technical_signals, calculate support/resistance relative to the CURRENT PRICE provided above.
+5. If historical context was provided, how did similar news affect the market?
 
 Respond with ONLY the JSON object, no additional text."""
 

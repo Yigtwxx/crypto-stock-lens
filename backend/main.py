@@ -12,6 +12,7 @@ import hashlib
 from models.schemas import NewsItem, NewsResponse, AnalysisRequest, SentimentAnalysis
 from services.news_service import fetch_all_news
 from services.ollama_service import analyze_news_with_ollama, generate_prediction_hash, check_ollama_health
+from services.technical_analysis_service import get_technical_analysis
 
 # Set to True to use real API data, False for mock data
 USE_REAL_API = True
@@ -193,6 +194,7 @@ async def analyze_news(request: AnalysisRequest):
     Analyze a news item using Ollama LLM (llama3.1:8b).
     
     Provides real AI-powered sentiment analysis with confidence scores.
+    Technical analysis uses REAL market data from Binance API.
     """
     # Find the news item from cache or mock data
     news_item = get_news_from_cache_or_mock(request.news_id)
@@ -200,8 +202,13 @@ async def analyze_news(request: AnalysisRequest):
     if not news_item:
         raise HTTPException(status_code=404, detail="News item not found")
     
+    # Fetch REAL technical analysis data for crypto assets
+    real_technical = None
+    if news_item.asset_type == "crypto":
+        real_technical = await get_technical_analysis(news_item.symbol)
+    
     if USE_OLLAMA_AI:
-        # Use real Ollama AI analysis
+        # Use real Ollama AI analysis (for sentiment only)
         analysis = await analyze_news_with_ollama(
             title=news_item.title,
             summary=news_item.summary,
@@ -225,8 +232,17 @@ async def analyze_news(request: AnalysisRequest):
             historical_context += f"Key factors: {', '.join(key_factors[:3])}. "
         if price_impact:
             historical_context += f"Expected impact: {price_impact}"
-            
-        technical_signals = analysis.get("technical_signals")
+        
+        # Use REAL technical data if available, otherwise fallback to LLM
+        if real_technical:
+            technical_signals = {
+                "rsi_signal": real_technical["rsi_signal"],
+                "support_levels": real_technical["support_levels"],
+                "resistance_levels": real_technical["resistance_levels"],
+                "target_price": real_technical["target_price"]
+            }
+        else:
+            technical_signals = analysis.get("technical_signals")
     else:
         # Fallback to mock analysis
         sentiments = ["bullish", "bearish", "neutral"]
@@ -255,6 +271,19 @@ async def get_tracked_symbols():
     """Get list of all tracked symbols."""
     symbols = list(set(item.symbol for item in MOCK_NEWS))
     return {"symbols": symbols}
+
+
+@app.get("/api/technical/{symbol}")
+async def get_technical_levels(symbol: str):
+    """
+    Get real technical analysis for a crypto symbol.
+    
+    Example: /api/technical/BTCUSDT
+    """
+    result = await get_technical_analysis(f"BINANCE:{symbol}")
+    if result:
+        return result
+    raise HTTPException(status_code=404, detail="Technical analysis not available for this symbol")
 
 
 @app.get("/api/ollama/status")

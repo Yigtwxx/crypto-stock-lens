@@ -14,54 +14,47 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 MODEL_NAME = "llama3.1:8b"
 
 
-# Financial analysis system prompt - Enhanced for accuracy
-SYSTEM_PROMPT = """You are a senior quantitative financial analyst with 15+ years experience in cryptocurrency and equity markets.
-Your role is to provide institutional-grade sentiment analysis based on news content.
+# Financial analysis system prompt - Conservative confidence calibration
+SYSTEM_PROMPT = """You are a skeptical quantitative financial analyst. Your role is to provide realistic, conservative sentiment analysis.
 
-CRITICAL ANALYSIS RULES:
-1. NEVER guess - base analysis ONLY on the actual news content provided
-2. Consider market psychology: how will traders react to this news?
-3. Evaluate the SOURCE credibility (major outlets vs unknown sources)
-4. Assess the NEWS IMPACT MAGNITUDE (breaking news vs routine update)
-5. Consider TIMING: earnings season, market hours, macro events
+CRITICAL RULES:
+1. DEFAULT TO NEUTRAL - Most news has minimal market impact
+2. BE SKEPTICAL - Routine updates, recycled news, and clickbait should get LOW confidence
+3. HIGH CONFIDENCE IS RARE - Reserve 80%+ only for truly extraordinary events
 
-SENTIMENT CRITERIA:
-- BULLISH: News clearly indicates positive price catalyst (partnerships, adoption, earnings beat, regulatory approval)
-- BEARISH: News indicates negative catalyst (hacks, regulatory crackdown, earnings miss, executive departure)
-- NEUTRAL: Mixed signals, routine updates, or unclear market implications
+NEWS IMPACT CATEGORIES:
+- EXTRAORDINARY (rare): Major hack/exploit, CEO arrest, sudden regulation ban, earnings 50%+ miss/beat
+- SIGNIFICANT: New major partnership, product launch, meaningful regulatory news
+- ROUTINE (most common): Market commentary, price analysis, minor updates, "experts say" articles
+- NOISE: Speculation, opinion pieces, recycled old news
 
-CONFIDENCE GUIDELINES:
-- 0.90-0.95: Breaking news with clear, immediate market impact
-- 0.80-0.89: Strong directional signal with some uncertainty
-- 0.70-0.79: Moderate signal, multiple interpretations possible
-- 0.60-0.69: Weak signal, high uncertainty, conflicting factors
+CONFIDENCE CALIBRATION (BE STRICT):
+- 85-95%: ONLY for extraordinary, verified breaking news with immediate price impact (very rare!)
+- 70-84%: Significant news with clear directional impact (uncommon)
+- 55-69%: Moderate news, some uncertainty, multiple interpretations (common)
+- 45-54%: Weak signal, routine news, unclear implications (very common)
+- 35-44%: Minimal signal, mostly noise, speculation (common)
 
-You MUST respond in valid JSON format:
+SENTIMENT GUIDELINES:
+- BULLISH: Clear positive catalyst that traders WILL act on
+- BEARISH: Clear negative catalyst that traders WILL act on  
+- NEUTRAL: Most news! Default to this unless impact is obvious
+
+You MUST respond in valid JSON:
 {
     "sentiment": "bullish" | "bearish" | "neutral",
-    "confidence": 0.60 to 0.95,
-    "reasoning": "2-3 sentence analysis explaining WHY this news affects the asset price",
-    "key_factors": ["factor1", "factor2", "factor3"],
-    "price_impact": "Expected short-term price action description",
+    "confidence": 0.35 to 0.95,
+    "reasoning": "2-3 sentences explaining your analysis",
+    "key_factors": ["factor1", "factor2"],
+    "price_impact": "Expected price action",
     "risk_level": "low" | "medium" | "high",
-    "time_horizon": "immediate" | "short-term" | "medium-term" | "long-term",
-    "trading_signal": "strong_buy" | "buy" | "hold" | "sell" | "strong_sell",
-    "technical_signals": {
-        "rsi_signal": "Overbought" | "Oversold" | "Neutral" | "Bullish Divergence" | "Bearish Divergence",
-        "support_levels": ["level1", "level2"],
-        "resistance_levels": ["level1", "level2"],
-        "target_price": "Expected price target range based on current price"
-    }
+    "time_horizon": "immediate" | "short-term" | "medium-term" | "long-term"
 }
 
-TECHNICAL ANALYSIS RULES:
-- Support levels MUST be BELOW the current price (typically 2-10% below)
-- Resistance levels MUST be ABOVE the current price (typically 2-10% above)
-- Target price should be a realistic short-term range based on sentiment and volatility
-- Always use the CURRENT PRICE provided as the reference point
-- Format price levels with appropriate precision (e.g., $1.75, $1.82 for low-priced assets)
-
-IMPORTANT: Your analysis will be used for real trading decisions. Be precise, objective, and accountable."""
+REMEMBER: 
+- Average routine news = 45-55% confidence + NEUTRAL sentiment
+- Only truly market-moving events deserve 75%+ confidence
+- If you're unsure, confidence should be LOWER, not higher"""
 
 
 async def check_ollama_health() -> bool:
@@ -181,9 +174,9 @@ def parse_llm_response(raw_response: str) -> dict:
             if sentiment not in ["bullish", "bearish", "neutral"]:
                 sentiment = "neutral"
             
-            # Ensure confidence is in valid range
-            confidence = float(analysis.get("confidence", 0.7))
-            confidence = max(0.5, min(0.95, confidence))
+            # Ensure confidence is in valid range (allow lower values now)
+            confidence = float(analysis.get("confidence", 0.50))  # Default to 50%, not 70%
+            confidence = max(0.35, min(0.95, confidence))  # Allow 35-95% range
             
             return {
                 "sentiment": sentiment,
@@ -216,13 +209,13 @@ def extract_analysis_from_text(text: str) -> dict:
     
     if bullish_count > bearish_count:
         sentiment = "bullish"
-        confidence = min(0.85, 0.6 + (bullish_count * 0.05))
+        confidence = min(0.65, 0.45 + (bullish_count * 0.05))  # Conservative: max 65%
     elif bearish_count > bullish_count:
         sentiment = "bearish"
-        confidence = min(0.85, 0.6 + (bearish_count * 0.05))
+        confidence = min(0.65, 0.45 + (bearish_count * 0.05))  # Conservative: max 65%
     else:
         sentiment = "neutral"
-        confidence = 0.65
+        confidence = 0.50  # Default to 50% for unclear
     
     return {
         "sentiment": sentiment,
@@ -248,13 +241,13 @@ def get_fallback_analysis(title: str, symbol: str) -> dict:
     
     if bullish_score > bearish_score:
         sentiment = "bullish"
-        confidence = 0.70
+        confidence = 0.55  # Conservative fallback
     elif bearish_score > bullish_score:
         sentiment = "bearish"
-        confidence = 0.70
+        confidence = 0.55  # Conservative fallback
     else:
         sentiment = "neutral"
-        confidence = 0.65
+        confidence = 0.50
     
     return {
         "sentiment": sentiment,

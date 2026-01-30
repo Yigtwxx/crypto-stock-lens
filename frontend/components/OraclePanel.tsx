@@ -194,16 +194,6 @@ export default function OraclePanel() {
                                 </div>
                             </div>
                         )}
-                        {/* Prediction Hash */}
-                        {analysis.prediction_hash && (
-                            <div className="p-3 rounded-lg bg-oracle-darker border border-oracle-border">
-                                <p className="text-xs text-gray-500 mb-1">Prediction Hash (SHA-256)</p>
-                                <p className="text-xs font-mono text-gray-400 break-all">
-                                    {analysis.prediction_hash}
-                                </p>
-                            </div>
-                        )}
-
                         {/* Trading Signal */}
                         <div className="flex items-center justify-between p-3 rounded-lg bg-oracle-darker border border-oracle-border">
                             <span className="text-sm text-gray-400">Trading Signal</span>

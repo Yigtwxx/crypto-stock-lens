@@ -20,6 +20,44 @@ from services.ollama_service import analyze_news_with_ollama, generate_predictio
 from services.technical_analysis_service import get_technical_analysis
 from services.rag_service import get_rag_context, store_news_with_outcome, get_collection_stats
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TERMINAL COLORS & LOGGING
+# ═══════════════════════════════════════════════════════════════════════════════
+class Colors:
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    WHITE = '\033[97m'
+    GRAY = '\033[90m'
+    BOLD = '\033[1m'
+    END = '\033[0m'
+
+def log_header(message: str):
+    print(f"\n{Colors.PURPLE}{'═'*60}{Colors.END}", flush=True)
+    print(f"{Colors.PURPLE}{Colors.BOLD}  🔮 {message}{Colors.END}", flush=True)
+    print(f"{Colors.PURPLE}{'═'*60}{Colors.END}", flush=True)
+
+def log_step(emoji: str, message: str, color: str = Colors.CYAN):
+    print(f"{color}  {emoji}  {message}{Colors.END}", flush=True)
+
+def log_success(message: str):
+    print(f"{Colors.GREEN}  ✓  {message}{Colors.END}", flush=True)
+
+def log_warning(message: str):
+    print(f"{Colors.YELLOW}  ⚠  {message}{Colors.END}", flush=True)
+
+def log_error(message: str):
+    print(f"{Colors.RED}  ✗  {message}{Colors.END}", flush=True)
+
+def log_info(message: str):
+    print(f"{Colors.GRAY}      {message}{Colors.END}", flush=True)
+
+def log_result(label: str, value: str, color: str = Colors.WHITE):
+    print(f"{Colors.GRAY}      {label}: {color}{value}{Colors.END}", flush=True)
+
 # Set to True to use real API data, False for mock data
 USE_REAL_API = True
 # Set to True to use Ollama AI for analysis
@@ -202,38 +240,83 @@ async def analyze_news(request: AnalysisRequest):
     Provides real AI-powered sentiment analysis with confidence scores.
     Technical analysis uses REAL market data from Binance API.
     """
+    global _news_cache
+    
+    log_header("NEW ANALYSIS REQUEST")
+    log_step("📰", f"News ID: {request.news_id}")
+    
     # Find the news item from cache or mock data
     news_item = get_news_from_cache_or_mock(request.news_id)
     
+    # If not found in cache, try to fetch fresh news and search again
     if not news_item:
-        raise HTTPException(status_code=404, detail="News item not found")
+        log_warning("News not in cache, fetching fresh data...")
+        try:
+            fresh_items = await fetch_all_news()
+            _news_cache = {item.id: item for item in fresh_items}
+            news_item = _news_cache.get(request.news_id)
+            if news_item:
+                log_success("Found news in fresh data!")
+        except Exception as e:
+            log_error(f"Failed to fetch fresh news: {e}")
+    
+    if not news_item:
+        log_error(f"News item not found: {request.news_id}")
+        raise HTTPException(status_code=404, detail=f"News item not found: {request.news_id}")
+    
+    # Log news details
+    log_step("📋", f"Title: {news_item.title[:60]}...", Colors.WHITE)
+    log_result("Symbol", news_item.symbol)
+    log_result("Asset Type", news_item.asset_type.upper())
+    if request.current_price:
+        log_result("Current Price", f"${request.current_price:,.2f}", Colors.GREEN)
     
     # Fetch REAL technical analysis data for crypto assets
     real_technical = None
     if news_item.asset_type == "crypto":
+        log_step("📊", "Fetching real-time technical analysis...", Colors.BLUE)
         real_technical = await get_technical_analysis(news_item.symbol)
+        if real_technical:
+            log_success(f"Technical data: RSI {real_technical.get('rsi_signal', 'N/A')}")
     
     if USE_OLLAMA_AI:
         # Get RAG context from similar historical news
+        log_step("🧠", "Searching historical context (RAG)...", Colors.CYAN)
         rag_context = get_rag_context(
             title=news_item.title,
             summary=news_item.summary,
             asset_type=news_item.asset_type
         )
+        if rag_context:
+            log_success("Historical context found!")
         
         # Use Ollama AI analysis with RAG-enhanced context
+        log_step("🤖", "AI is analyzing the news...", Colors.PURPLE)
+        log_info("Connecting to Ollama (llama3.1:8b)...")
+        log_info("Processing sentiment, confidence, and reasoning...")
+        
         analysis = await analyze_news_with_ollama(
             title=news_item.title,
             summary=news_item.summary,
             symbol=news_item.symbol,
             asset_type=news_item.asset_type,
             current_price=request.current_price,
-            rag_context=rag_context  # Include historical context
+            rag_context=rag_context
         )
         
         sentiment = analysis.get("sentiment", "neutral")
         confidence = analysis.get("confidence", 0.7)
         reasoning = analysis.get("reasoning", "Analysis completed.")
+        
+        # Log AI result
+        sentiment_colors = {
+            "bullish": Colors.GREEN,
+            "bearish": Colors.RED,
+            "neutral": Colors.YELLOW
+        }
+        log_success("AI analysis complete!")
+        log_result("Sentiment", sentiment.upper(), sentiment_colors.get(sentiment, Colors.WHITE))
+        log_result("Confidence", f"{confidence*100:.0f}%", Colors.CYAN)
         
         # Build professional historical context
         key_factors = analysis.get("key_factors", [])
@@ -242,11 +325,7 @@ async def analyze_news(request: AnalysisRequest):
         time_horizon = analysis.get("time_horizon", "short-term")
         
         # Format risk level display
-        risk_labels = {
-            "low": "LOW",
-            "medium": "MEDIUM", 
-            "high": "HIGH"
-        }
+        risk_labels = {"low": "LOW", "medium": "MEDIUM", "high": "HIGH"}
         risk_display = risk_labels.get(risk_level.lower(), "MEDIUM")
         
         # Format time horizon display
@@ -258,6 +337,9 @@ async def analyze_news(request: AnalysisRequest):
         }
         horizon_display = horizon_labels.get(time_horizon.lower(), "Short-term (1-7 days)")
         
+        log_result("Risk Level", risk_display)
+        log_result("Time Horizon", horizon_display)
+        
         # Build professional context string
         context_parts = []
         context_parts.append(f"Risk Level: {risk_display} | Time Horizon: {horizon_display}")
@@ -265,6 +347,7 @@ async def analyze_news(request: AnalysisRequest):
         if key_factors:
             factors_text = ", ".join(key_factors[:3])
             context_parts.append(f"Key factors: {factors_text}")
+            log_result("Key Factors", factors_text)
         
         if price_impact:
             context_parts.append(f"Expected impact: {price_impact}")
@@ -282,6 +365,7 @@ async def analyze_news(request: AnalysisRequest):
         else:
             technical_signals = analysis.get("technical_signals")
     else:
+        log_warning("Ollama AI disabled, using fallback analysis...")
         # Fallback to mock analysis
         sentiments = ["bullish", "bearish", "neutral"]
         sentiment = random.choice(sentiments[:2])
@@ -291,9 +375,11 @@ async def analyze_news(request: AnalysisRequest):
         technical_signals = None
     
     # Generate prediction hash
+    log_step("🔐", "Generating prediction hash...", Colors.GRAY)
     prediction_hash = generate_prediction_hash(news_item.id, sentiment, confidence)
     
     # Store news and analysis in RAG for future learning
+    log_step("💾", "Storing analysis in RAG database...", Colors.GRAY)
     store_news_with_outcome(
         news_id=news_item.id,
         title=news_item.title,
@@ -303,6 +389,9 @@ async def analyze_news(request: AnalysisRequest):
         sentiment=sentiment,
         confidence=confidence
     )
+    
+    log_success("Analysis complete and stored!")
+    print(f"{Colors.PURPLE}{'═'*60}{Colors.END}\n")
     
     return SentimentAnalysis(
         sentiment=sentiment,

@@ -194,16 +194,70 @@ export default function OraclePanel() {
                                 </div>
                             </div>
                         )}
-                        {/* Trading Signal */}
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-oracle-darker border border-oracle-border">
-                            <span className="text-sm text-gray-400">Trading Signal</span>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${analysis.sentiment === 'bullish' ? 'bg-oracle-bullish/20 text-oracle-bullish' :
-                                analysis.sentiment === 'bearish' ? 'bg-oracle-bearish/20 text-oracle-bearish' :
-                                    'bg-oracle-neutral/20 text-oracle-neutral'
-                                }`}>
-                                {analysis.sentiment === 'bullish' ? 'STRONG BUY' :
-                                    analysis.sentiment === 'bearish' ? 'STRONG SELL' : 'HOLD'}
-                            </span>
+                        {/* Trading Signals - Multi Timeframe */}
+                        <div className="p-4 rounded-xl bg-oracle-card border border-oracle-border">
+                            <div className="flex items-center gap-2 mb-4">
+                                <TrendingUp className="w-4 h-4 text-pink" />
+                                <h4 className="font-medium text-pink">Trading Signals</h4>
+                            </div>
+
+                            <div className="space-y-3">
+                                {/* Short Term */}
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-oracle-darker border border-oracle-border">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-white">Kısa Vadeli</span>
+                                        <span className="text-xs text-gray-500">1-7 Gün</span>
+                                    </div>
+                                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase ${analysis.sentiment === 'bullish'
+                                            ? 'bg-oracle-bullish/20 text-oracle-bullish border border-oracle-bullish/30'
+                                            : analysis.sentiment === 'bearish'
+                                                ? 'bg-oracle-bearish/20 text-oracle-bearish border border-oracle-bearish/30'
+                                                : 'bg-oracle-neutral/20 text-oracle-neutral border border-oracle-neutral/30'
+                                        }`}>
+                                        {analysis.sentiment === 'bullish' ? '🟢 BUY' :
+                                            analysis.sentiment === 'bearish' ? '🔴 SELL' : '🟡 HOLD'}
+                                    </span>
+                                </div>
+
+                                {/* Medium Term */}
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-oracle-darker border border-oracle-border">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-white">Orta Vadeli</span>
+                                        <span className="text-xs text-gray-500">1-4 Hafta</span>
+                                    </div>
+                                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase ${analysis.confidence >= 0.7 && analysis.sentiment === 'bullish'
+                                            ? 'bg-oracle-bullish/20 text-oracle-bullish border border-oracle-bullish/30'
+                                            : analysis.confidence >= 0.7 && analysis.sentiment === 'bearish'
+                                                ? 'bg-oracle-bearish/20 text-oracle-bearish border border-oracle-bearish/30'
+                                                : 'bg-oracle-neutral/20 text-oracle-neutral border border-oracle-neutral/30'
+                                        }`}>
+                                        {analysis.confidence >= 0.7 && analysis.sentiment === 'bullish' ? '🟢 BUY' :
+                                            analysis.confidence >= 0.7 && analysis.sentiment === 'bearish' ? '🔴 SELL' : '🟡 HOLD'}
+                                    </span>
+                                </div>
+
+                                {/* Long Term */}
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-oracle-darker border border-oracle-border">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-white">Uzun Vadeli</span>
+                                        <span className="text-xs text-gray-500">1-6 Ay</span>
+                                    </div>
+                                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase ${analysis.confidence >= 0.8 && analysis.sentiment === 'bullish'
+                                            ? 'bg-oracle-bullish/20 text-oracle-bullish border border-oracle-bullish/30'
+                                            : analysis.confidence >= 0.8 && analysis.sentiment === 'bearish'
+                                                ? 'bg-oracle-bearish/20 text-oracle-bearish border border-oracle-bearish/30'
+                                                : 'bg-oracle-neutral/20 text-oracle-neutral border border-oracle-neutral/30'
+                                        }`}>
+                                        {analysis.confidence >= 0.8 && analysis.sentiment === 'bullish' ? '🟢 BUY' :
+                                            analysis.confidence >= 0.8 && analysis.sentiment === 'bearish' ? '🔴 SELL' : '🟡 HOLD'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Disclaimer */}
+                            <p className="text-[10px] text-gray-600 mt-3 text-center italic">
+                                Bu sinyaller yatırım tavsiyesi değildir.
+                            </p>
                         </div>
                     </div>
                 ) : null}

@@ -7,11 +7,26 @@ import json
 from typing import Optional
 from datetime import datetime
 import hashlib
+import time
 
 
 # Ollama API endpoint (default local)
 OLLAMA_BASE_URL = "http://localhost:11434"
 MODEL_NAME = "llama3.1:8b"
+
+# Terminal colors for logging
+class Colors:
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    GRAY = '\033[90m'
+    BOLD = '\033[1m'
+    END = '\033[0m'
+
+def _log(emoji: str, msg: str, color: str = Colors.CYAN):
+    print(f"{color}      {emoji}  {msg}{Colors.END}", flush=True)
 
 
 # Financial analysis system prompt - Conservative confidence calibration
@@ -127,7 +142,12 @@ Consider:
 Respond with ONLY the JSON object, no additional text."""
 
     try:
+        start_time = time.time()
+        _log("🔌", f"Connecting to Ollama at {OLLAMA_BASE_URL}...", Colors.GRAY)
+        
         async with httpx.AsyncClient(timeout=90.0) as client:
+            _log("💭", "AI is thinking... (this may take 10-30 seconds)", Colors.PURPLE)
+            
             response = await client.post(
                 f"{OLLAMA_BASE_URL}/api/generate",
                 json={
@@ -136,7 +156,7 @@ Respond with ONLY the JSON object, no additional text."""
                     "system": SYSTEM_PROMPT,
                     "stream": False,
                     "options": {
-                        "temperature": 0.2,  # Very low for consistency
+                        "temperature": 0.2,
                         "top_p": 0.85,
                         "top_k": 40,
                         "num_predict": 600,
@@ -145,19 +165,38 @@ Respond with ONLY the JSON object, no additional text."""
                 }
             )
             
+            elapsed = time.time() - start_time
+            
             if response.status_code == 200:
+                _log("✓", f"AI responded in {elapsed:.1f} seconds", Colors.GREEN)
                 result = response.json()
                 raw_response = result.get("response", "")
                 
                 # Parse JSON from response
                 analysis = parse_llm_response(raw_response)
+                
+                # Log the result
+                sentiment_emoji = {"bullish": "📈", "bearish": "📉", "neutral": "➖"}
+                _log(sentiment_emoji.get(analysis.get("sentiment", "neutral"), "❓"), 
+                     f"Result: {analysis.get('sentiment', 'unknown').upper()} ({analysis.get('confidence', 0)*100:.0f}% confidence)", 
+                     Colors.CYAN)
+                
                 return analysis
             else:
-                print(f"Ollama API error: {response.status_code}")
+                _log("✗", f"Ollama API error: {response.status_code}", Colors.RED)
+                _log("⚠", "Using fallback keyword-based analysis...", Colors.YELLOW)
                 return get_fallback_analysis(title, symbol)
                 
+    except httpx.ConnectError:
+        _log("✗", "Cannot connect to Ollama - is it running?", Colors.RED)
+        _log("💡", "Start Ollama with: ollama serve", Colors.YELLOW)
+        return get_fallback_analysis(title, symbol)
+    except httpx.TimeoutException:
+        _log("✗", "Ollama request timed out (>90s)", Colors.RED)
+        _log("⚠", "Using fallback analysis...", Colors.YELLOW)
+        return get_fallback_analysis(title, symbol)
     except Exception as e:
-        print(f"Ollama analysis error: {e}")
+        _log("✗", f"Ollama error: {e}", Colors.RED)
         return get_fallback_analysis(title, symbol)
 
 

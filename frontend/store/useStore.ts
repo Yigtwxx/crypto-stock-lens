@@ -67,11 +67,13 @@ export const useStore = create<OracleStore>((set) => ({
 
     // Actions - setNewsItems with guaranteed sorted order
     setNewsItems: (items) => {
-        // Always sort by published_at (newest first) with stable secondary sort
+        // Sort by published_at (newest first) using ISO string comparison
+        // This is more stable than Date parsing
         const sortedItems = [...items].sort((a, b) => {
-            const dateA = new Date(a.published_at).getTime();
-            const dateB = new Date(b.published_at).getTime();
-            if (dateB !== dateA) return dateB - dateA;
+            // ISO strings can be compared lexicographically
+            const dateCompare = b.published_at.localeCompare(a.published_at);
+            if (dateCompare !== 0) return dateCompare;
+            // Secondary sort by ID for stability
             return a.id.localeCompare(b.id);
         });
         set({ newsItems: sortedItems });

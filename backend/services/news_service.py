@@ -59,30 +59,123 @@ def parse_feed_date(entry) -> datetime:
 
 
 # Symbol mappings for different news sources
-CRYPTO_SYMBOLS = {
-    "BTC": "BINANCE:BTCUSDT",
-    "BITCOIN": "BINANCE:BTCUSDT",
-    "ETH": "BINANCE:ETHUSDT",
-    "ETHEREUM": "BINANCE:ETHUSDT",
-    "SOL": "BINANCE:SOLUSDT",
-    "SOLANA": "BINANCE:SOLUSDT",
-    "XRP": "BINANCE:XRPUSDT",
-    "RIPPLE": "BINANCE:XRPUSDT",
-    "ADA": "BINANCE:ADAUSDT",
-    "CARDANO": "BINANCE:ADAUSDT",
-    "DOGE": "BINANCE:DOGEUSDT",
-    "DOGECOIN": "BINANCE:DOGEUSDT",
-    "DOT": "BINANCE:DOTUSDT",
-    "POLKADOT": "BINANCE:DOTUSDT",
-    "AVAX": "BINANCE:AVAXUSDT",
-    "AVALANCHE": "BINANCE:AVAXUSDT",
-    "MATIC": "BINANCE:MATICUSDT",
-    "POLYGON": "BINANCE:MATICUSDT",
-    "LINK": "BINANCE:LINKUSDT",
-    "CHAINLINK": "BINANCE:LINKUSDT",
-    "UNI": "BINANCE:UNIUSDT",
-    "UNISWAP": "BINANCE:UNIUSDT",
-}
+# IMPORTANT: Listed in priority order - more specific names first
+CRYPTO_SYMBOLS = [
+    # Pi Network (must be first, before generic "PI" matches)
+    ("PI NETWORK", "BINANCE:PIUSDT"),
+    ("PI TOKEN", "BINANCE:PIUSDT"),
+    ("PI COIN", "BINANCE:PIUSDT"),
+    ("PIUSDT", "BINANCE:PIUSDT"),
+    
+    # Bitcoin - specific patterns
+    ("BITCOIN", "BINANCE:BTCUSDT"),
+    ("BTCUSDT", "BINANCE:BTCUSDT"),
+    ("BTC/", "BINANCE:BTCUSDT"),
+    (" BTC ", "BINANCE:BTCUSDT"),
+    ("(BTC)", "BINANCE:BTCUSDT"),
+    
+    # Ethereum
+    ("ETHEREUM", "BINANCE:ETHUSDT"),
+    ("ETHUSDT", "BINANCE:ETHUSDT"),
+    ("ETH/", "BINANCE:ETHUSDT"),
+    (" ETH ", "BINANCE:ETHUSDT"),
+    ("(ETH)", "BINANCE:ETHUSDT"),
+    
+    # Solana
+    ("SOLANA", "BINANCE:SOLUSDT"),
+    ("SOLUSDT", "BINANCE:SOLUSDT"),
+    (" SOL ", "BINANCE:SOLUSDT"),
+    ("(SOL)", "BINANCE:SOLUSDT"),
+    
+    # XRP / Ripple
+    ("RIPPLE", "BINANCE:XRPUSDT"),
+    ("XRPUSDT", "BINANCE:XRPUSDT"),
+    (" XRP ", "BINANCE:XRPUSDT"),
+    ("(XRP)", "BINANCE:XRPUSDT"),
+    
+    # Cardano
+    ("CARDANO", "BINANCE:ADAUSDT"),
+    ("ADAUSDT", "BINANCE:ADAUSDT"),
+    (" ADA ", "BINANCE:ADAUSDT"),
+    ("(ADA)", "BINANCE:ADAUSDT"),
+    
+    # Dogecoin
+    ("DOGECOIN", "BINANCE:DOGEUSDT"),
+    ("DOGEUSDT", "BINANCE:DOGEUSDT"),
+    (" DOGE ", "BINANCE:DOGEUSDT"),
+    ("(DOGE)", "BINANCE:DOGEUSDT"),
+    
+    # Shiba Inu
+    ("SHIBA INU", "BINANCE:SHIBUSDT"),
+    ("SHIBA", "BINANCE:SHIBUSDT"),
+    ("SHIBUSDT", "BINANCE:SHIBUSDT"),
+    (" SHIB ", "BINANCE:SHIBUSDT"),
+    ("(SHIB)", "BINANCE:SHIBUSDT"),
+    
+    # Pepe
+    ("PEPE COIN", "BINANCE:PEPEUSDT"),
+    ("PEPEUSDT", "BINANCE:PEPEUSDT"),
+    (" PEPE ", "BINANCE:PEPEUSDT"),
+    ("(PEPE)", "BINANCE:PEPEUSDT"),
+    
+    # Polkadot
+    ("POLKADOT", "BINANCE:DOTUSDT"),
+    ("DOTUSDT", "BINANCE:DOTUSDT"),
+    (" DOT ", "BINANCE:DOTUSDT"),
+    ("(DOT)", "BINANCE:DOTUSDT"),
+    
+    # Avalanche
+    ("AVALANCHE", "BINANCE:AVAXUSDT"),
+    ("AVAXUSDT", "BINANCE:AVAXUSDT"),
+    (" AVAX ", "BINANCE:AVAXUSDT"),
+    ("(AVAX)", "BINANCE:AVAXUSDT"),
+    
+    # Polygon / MATIC
+    ("POLYGON", "BINANCE:MATICUSDT"),
+    ("MATICUSDT", "BINANCE:MATICUSDT"),
+    (" MATIC ", "BINANCE:MATICUSDT"),
+    ("(MATIC)", "BINANCE:MATICUSDT"),
+    
+    # Chainlink
+    ("CHAINLINK", "BINANCE:LINKUSDT"),
+    ("LINKUSDT", "BINANCE:LINKUSDT"),
+    (" LINK ", "BINANCE:LINKUSDT"),
+    ("(LINK)", "BINANCE:LINKUSDT"),
+    
+    # Uniswap
+    ("UNISWAP", "BINANCE:UNIUSDT"),
+    ("UNIUSDT", "BINANCE:UNIUSDT"),
+    (" UNI ", "BINANCE:UNIUSDT"),
+    ("(UNI)", "BINANCE:UNIUSDT"),
+    
+    # Litecoin
+    ("LITECOIN", "BINANCE:LTCUSDT"),
+    ("LTCUSDT", "BINANCE:LTCUSDT"),
+    (" LTC ", "BINANCE:LTCUSDT"),
+    ("(LTC)", "BINANCE:LTCUSDT"),
+    
+    # Tron
+    ("TRON", "BINANCE:TRXUSDT"),
+    ("TRXUSDT", "BINANCE:TRXUSDT"),
+    (" TRX ", "BINANCE:TRXUSDT"),
+    ("(TRX)", "BINANCE:TRXUSDT"),
+    
+    # BNB
+    ("BINANCE COIN", "BINANCE:BNBUSDT"),
+    ("BNBUSDT", "BINANCE:BNBUSDT"),
+    (" BNB ", "BINANCE:BNBUSDT"),
+    ("(BNB)", "BINANCE:BNBUSDT"),
+    
+    # Tether
+    ("TETHER", "BINANCE:USDTUSDC"),
+    (" USDT ", "BINANCE:USDTUSDC"),
+    
+    # ATOM / Cosmos
+    ("COSMOS", "BINANCE:ATOMUSDT"),
+    ("ATOMUSDT", "BINANCE:ATOMUSDT"),
+    (" ATOM ", "BINANCE:ATOMUSDT"),
+    ("(ATOM)", "BINANCE:ATOMUSDT"),
+]
 
 STOCK_SYMBOLS = {
     # Tech Giants
@@ -105,13 +198,13 @@ STOCK_SYMBOLS = {
     "LAZ": "NYSE:LAZ", "LAZARD": "NYSE:LAZ",
     # Industrial
     "CAT": "NYSE:CAT", "CATERPILLAR": "NYSE:CAT",
-    "BA": "NYSE:BA", "BOEING": "NYSE:BA",
+    "BOEING": "NYSE:BA",
     "GE": "NYSE:GE", "GENERAL ELECTRIC": "NYSE:GE",
     "EXP": "NYSE:EXP", "EAGLE MATERIALS": "NYSE:EXP",
     # Airlines & Transport
     "LUV": "NYSE:LUV", "SOUTHWEST": "NYSE:LUV",
     "DAL": "NYSE:DAL", "DELTA": "NYSE:DAL",
-    "UAL": "NASDAQ:UAL", "UNITED": "NASDAQ:UAL",
+    "UAL": "NASDAQ:UAL", "UNITED AIRLINES": "NASDAQ:UAL",
     # Telecom & Tech
     "NOK": "NYSE:NOK", "NOKIA": "NYSE:NOK",
     "SAP": "NYSE:SAP",
@@ -141,16 +234,18 @@ STOCK_SYMBOLS = {
 
 
 def detect_symbol(text: str, asset_type: str) -> Optional[str]:
-    """Detect trading symbol from news text."""
-    text_upper = text.upper()
+    """Detect trading symbol from news text with priority-based matching."""
+    # Normalize text for matching
+    text_upper = " " + text.upper() + " "  # Add spaces for boundary matching
     
     if asset_type == "crypto":
-        for keyword, tradingview in CRYPTO_SYMBOLS.items():
+        # CRYPTO_SYMBOLS is a list of tuples, ordered by priority
+        for keyword, tradingview in CRYPTO_SYMBOLS:
             if keyword in text_upper:
                 return tradingview
         return "BINANCE:BTCUSDT"  # Default
     else:
-        # Try to match company names and tickers
+        # STOCK_SYMBOLS is still a dict
         for keyword, tradingview in STOCK_SYMBOLS.items():
             if keyword in text_upper:
                 return tradingview

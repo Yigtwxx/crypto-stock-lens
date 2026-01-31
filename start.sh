@@ -229,10 +229,11 @@ fi
 # ─────────────────────────────────────────────────────────────────
 print_section "STARTING SERVICES"
 
-# Start Backend
+# Start Backend (logs visible for AI analysis tracking)
 print_status "run" "Starting ${BOLD}Backend${NC} ${GRAY}(FastAPI)${NC}..."
 cd "$SCRIPT_DIR/backend"
-uvicorn main:app --reload --host 0.0.0.0 --port 8000 > /dev/null 2>&1 &
+# PYTHONUNBUFFERED ensures real-time log output
+PYTHONUNBUFFERED=1 uvicorn main:app --reload --host 0.0.0.0 --port 8000 2>&1 &
 BACKEND_PID=$!
 sleep 2
 
@@ -244,7 +245,7 @@ else
     exit 1
 fi
 
-# Start Frontend
+# Start Frontend (logs hidden for cleaner output)
 print_status "run" "Starting ${BOLD}Frontend${NC} ${GRAY}(Next.js)${NC}..."
 cd "$SCRIPT_DIR/frontend"
 npm run dev > /dev/null 2>&1 &
@@ -290,7 +291,7 @@ fi
 echo ""
 echo -e "    ${GRAY}┌─────────────────────────────────────────────────────────────┐${NC}"
 echo -e "    ${GRAY}│${NC}  ${YELLOW}⌨${NC}  Press ${BOLD}Ctrl+C${NC} to stop all services                      ${GRAY}│${NC}"
-echo -e "    ${GRAY}│${NC}  ${CYAN}📊${NC}  Logs are hidden for cleaner output                       ${GRAY}│${NC}"
+echo -e "    ${GRAY}│${NC}  ${CYAN}🤖${NC}  Backend AI logs are visible below                         ${GRAY}│${NC}"
 echo -e "    ${GRAY}└─────────────────────────────────────────────────────────────┘${NC}"
 echo ""
 

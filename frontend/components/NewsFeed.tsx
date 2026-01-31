@@ -81,7 +81,13 @@ export default function NewsFeed() {
             setAnalysis(analysis);
         } catch (error) {
             console.error('Failed to analyze news:', error);
-            setLoadingAnalysis(false);
+            // Set a fallback analysis so UI shows something
+            setAnalysis({
+                sentiment: 'neutral',
+                confidence: 0.5,
+                reasoning: 'Analiz şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.',
+                historical_context: 'Bağlantı hatası veya sunucu meşgul olabilir.',
+            });
         }
     };
 

@@ -119,8 +119,8 @@ export default function NewsFeed() {
 
     return (
         <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="p-4 border-b border-oracle-border flex items-center justify-between bg-gradient-to-r from-oracle-dark via-oracle-dark to-indigo/5">
+            {/* Header - Fixed height to align with other panels */}
+            <div className="h-14 px-4 border-b border-oracle-border flex items-center justify-between bg-gradient-to-r from-oracle-dark via-oracle-dark to-indigo/5">
                 <div className="flex items-center gap-2">
                     <Newspaper className="w-5 h-5 text-indigo" />
                     <h2 className="font-semibold bg-gradient-to-r from-white to-indigo bg-clip-text text-transparent">The Feed</h2>

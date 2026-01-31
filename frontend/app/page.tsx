@@ -3,9 +3,14 @@
 import NewsFeed from '@/components/NewsFeed';
 import ChartPanel from '@/components/ChartPanel';
 import OraclePanel from '@/components/OraclePanel';
+import PriceAlertModal from '@/components/PriceAlertModal';
+import { usePriceAlerts } from '@/hooks/usePriceAlerts';
 import { Zap } from 'lucide-react';
 
 export default function Dashboard() {
+    // Initialize price alert monitoring
+    usePriceAlerts();
+
     return (
         <div className="h-screen flex flex-col overflow-hidden">
             {/* Header */}
@@ -38,6 +43,9 @@ export default function Dashboard() {
                     <OraclePanel />
                 </aside>
             </main>
+
+            {/* Price Alert Modal */}
+            <PriceAlertModal />
         </div>
     );
 }

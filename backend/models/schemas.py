@@ -19,6 +19,7 @@ class NewsItem(BaseModel):
 class AnalysisRequest(BaseModel):
     """Schema for requesting AI analysis of a news item."""
     news_id: str
+    current_price: Optional[float] = None  # Current market price for technical analysis
 
 
 class TechnicalSignals(BaseModel):

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface NewsItem {
     id: string;
@@ -28,6 +29,18 @@ export interface SentimentAnalysis {
     tx_hash?: string;
 }
 
+// Price Alert Types
+export interface PriceAlert {
+    id: string;
+    symbol: string;
+    displaySymbol: string;
+    targetPrice: number;
+    condition: 'above' | 'below';
+    isActive: boolean;
+    isTriggered: boolean;
+    createdAt: string;
+}
+
 interface OracleStore {
     // News state
     newsItems: NewsItem[];
@@ -44,6 +57,10 @@ interface OracleStore {
     // Current price from chart
     currentPrice: number | null;
 
+    // Price Alerts state
+    priceAlerts: PriceAlert[];
+    isAlertModalOpen: boolean;
+
     // Actions
     setNewsItems: (items: NewsItem[]) => void;
     selectNews: (news: NewsItem) => void;
@@ -53,55 +70,97 @@ interface OracleStore {
     setLoadingAnalysis: (loading: boolean) => void;
     setCurrentPrice: (price: number) => void;
     clearSelection: () => void;
+
+    // Price Alert Actions
+    addAlert: (alert: Omit<PriceAlert, 'id' | 'isActive' | 'isTriggered' | 'createdAt'>) => void;
+    removeAlert: (id: string) => void;
+    triggerAlert: (id: string) => void;
+    toggleAlertModal: (open: boolean) => void;
 }
 
-export const useStore = create<OracleStore>((set) => ({
-    // Initial state
-    newsItems: [],
-    selectedNews: null,
-    isLoadingNews: false,
-    chartSymbol: 'BINANCE:BTCUSDT',
-    analysis: null,
-    isLoadingAnalysis: false,
-    currentPrice: null,
+export const useStore = create<OracleStore>()(
+    persist(
+        (set, get) => ({
+            // Initial state
+            newsItems: [],
+            selectedNews: null,
+            isLoadingNews: false,
+            chartSymbol: 'BINANCE:BTCUSDT',
+            analysis: null,
+            isLoadingAnalysis: false,
+            currentPrice: null,
+            priceAlerts: [],
+            isAlertModalOpen: false,
 
-    // Actions - setNewsItems with guaranteed sorted order
-    setNewsItems: (items) => {
-        // Sort by published_at (newest first) using ISO string comparison
-        // This is more stable than Date parsing
-        const sortedItems = [...items].sort((a, b) => {
-            // ISO strings can be compared lexicographically
-            const dateCompare = b.published_at.localeCompare(a.published_at);
-            if (dateCompare !== 0) return dateCompare;
-            // Secondary sort by ID for stability
-            return a.id.localeCompare(b.id);
-        });
-        set({ newsItems: sortedItems });
-    },
+            // Actions - setNewsItems with guaranteed sorted order
+            setNewsItems: (items) => {
+                const sortedItems = [...items].sort((a, b) => {
+                    const dateCompare = b.published_at.localeCompare(a.published_at);
+                    if (dateCompare !== 0) return dateCompare;
+                    return a.id.localeCompare(b.id);
+                });
+                set({ newsItems: sortedItems });
+            },
 
-    selectNews: (news) => set({
-        selectedNews: news,
-        chartSymbol: news.symbol,
-        analysis: null, // Clear previous analysis
-        isLoadingAnalysis: true,
-    }),
+            selectNews: (news) => set({
+                selectedNews: news,
+                chartSymbol: news.symbol,
+                analysis: null,
+                isLoadingAnalysis: true,
+            }),
 
-    setChartSymbol: (symbol) => set({ chartSymbol: symbol }),
+            setChartSymbol: (symbol) => set({ chartSymbol: symbol }),
 
-    setAnalysis: (analysis) => set({
-        analysis,
-        isLoadingAnalysis: false,
-    }),
+            setAnalysis: (analysis) => set({
+                analysis,
+                isLoadingAnalysis: false,
+            }),
 
-    setLoadingNews: (loading) => set({ isLoadingNews: loading }),
+            setLoadingNews: (loading) => set({ isLoadingNews: loading }),
 
-    setLoadingAnalysis: (loading) => set({ isLoadingAnalysis: loading }),
+            setLoadingAnalysis: (loading) => set({ isLoadingAnalysis: loading }),
 
-    setCurrentPrice: (price) => set({ currentPrice: price }),
+            setCurrentPrice: (price) => set({ currentPrice: price }),
 
-    clearSelection: () => set({
-        selectedNews: null,
-        analysis: null,
-        isLoadingAnalysis: false,
-    }),
-}));
+            clearSelection: () => set({
+                selectedNews: null,
+                analysis: null,
+                isLoadingAnalysis: false,
+            }),
+
+            // Price Alert Actions
+            addAlert: (alertData) => {
+                const newAlert: PriceAlert = {
+                    ...alertData,
+                    id: `alert_${Date.now()}`,
+                    isActive: true,
+                    isTriggered: false,
+                    createdAt: new Date().toISOString(),
+                };
+                set((state) => ({
+                    priceAlerts: [...state.priceAlerts, newAlert],
+                }));
+            },
+
+            removeAlert: (id) => {
+                set((state) => ({
+                    priceAlerts: state.priceAlerts.filter((a) => a.id !== id),
+                }));
+            },
+
+            triggerAlert: (id) => {
+                set((state) => ({
+                    priceAlerts: state.priceAlerts.map((a) =>
+                        a.id === id ? { ...a, isTriggered: true, isActive: false } : a
+                    ),
+                }));
+            },
+
+            toggleAlertModal: (open) => set({ isAlertModalOpen: open }),
+        }),
+        {
+            name: 'oracle-x-storage',
+            partialize: (state) => ({ priceAlerts: state.priceAlerts }),
+        }
+    )
+);

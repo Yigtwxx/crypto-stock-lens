@@ -15,12 +15,23 @@ const config: Config = {
                     'card': '#12121a',
                     'card-hover': '#1a1a25',
                     'border': '#2a2a3a',
-                    'accent': '#6366f1',
-                    'accent-glow': 'rgba(99, 102, 241, 0.3)',
-                    'bullish': '#10b981',
-                    'bearish': '#ef4444',
-                    'neutral': '#f59e0b',
+                    'accent': '#8b5cf6',        // Vibrant purple
+                    'accent-glow': 'rgba(139, 92, 246, 0.3)',
+                    'bullish': '#22c55e',       // Bright green
+                    'bearish': '#ef4444',       // Red
+                    'neutral': '#f59e0b',       // Amber/Orange
                 },
+                // Extended palette
+                'crypto': '#f7931a',            // Bitcoin orange
+                'stock': '#3b82f6',             // Blue for stocks
+                'cyan': '#06b6d4',              // Cyan for highlights
+                'pink': '#ec4899',              // Pink accent
+                'lime': '#84cc16',              // Lime green
+                'amber': '#f59e0b',             // Amber
+                'rose': '#f43f5e',              // Rose red
+                'violet': '#8b5cf6',            // Violet
+                'indigo': '#6366f1',            // Indigo
+                'teal': '#14b8a6',              // Teal
             },
             backgroundImage: {
                 'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useStore, NewsItem } from '@/store/useStore';
 import { fetchNews, analyzeNews, fetchCurrentPrice } from '@/lib/api';
 import {
@@ -26,13 +26,16 @@ export default function NewsFeed() {
 
     const [activeFilter, setActiveFilter] = useState<'all' | 'stock' | 'crypto'>('all');
 
+    // Track if we've done initial sort to prevent re-sorting on every render
+    const initialSortDone = useRef(false);
+
     useEffect(() => {
         loadNews(false); // Initial load with loading state
 
-        // Auto-refresh every 15 seconds (silent, no loading spinner)
+        // Auto-refresh every 30 seconds (increased to reduce flickering)
         const interval = setInterval(() => {
             loadNews(true); // Silent refresh
-        }, 15000);
+        }, 30000);
 
         return () => clearInterval(interval);
     }, []);
@@ -44,21 +47,19 @@ export default function NewsFeed() {
         try {
             const items = await fetchNews();
 
-            // Stable sort: by published_at (newest first), then by ID for consistency
+            // Sort once when data arrives - newest first
+            // Use ISO string for consistent comparison
             const sortedItems = [...items].sort((a, b) => {
-                const dateA = new Date(a.published_at).getTime();
-                const dateB = new Date(b.published_at).getTime();
+                // Compare ISO date strings directly (lexicographic = chronological for ISO)
+                const dateCompare = b.published_at.localeCompare(a.published_at);
+                if (dateCompare !== 0) return dateCompare;
 
-                // Primary sort: by date (newest first)
-                if (dateB !== dateA) {
-                    return dateB - dateA;
-                }
-
-                // Secondary sort: by ID for stable ordering when dates are equal
+                // Secondary sort by ID for stability
                 return a.id.localeCompare(b.id);
             });
 
             setNewsItems(sortedItems);
+            initialSortDone.current = true;
         } catch (error) {
             console.error('Failed to load news:', error);
         } finally {
@@ -104,24 +105,17 @@ export default function NewsFeed() {
         return `${Math.floor(diffHours / 24)}d ago`;
     };
 
-    // Filter news items based on active filter, then ensure stable sort
-    const filteredNews = newsItems
-        .filter(news => {
+    // Use useMemo to prevent unnecessary re-sorting on each render
+    // newsItems are already sorted from loadNews, just filter here
+    const filteredNews = useMemo(() => {
+        const filtered = newsItems.filter(news => {
             if (activeFilter === 'all') return true;
             return news.asset_type === activeFilter;
-        })
-        .sort((a, b) => {
-            const dateA = new Date(a.published_at).getTime();
-            const dateB = new Date(b.published_at).getTime();
-
-            // Primary sort: by date (newest first)
-            if (dateB !== dateA) {
-                return dateB - dateA;
-            }
-
-            // Secondary sort: by ID for stable ordering
-            return a.id.localeCompare(b.id);
         });
+
+        // Items are already sorted from API, maintain that order
+        return filtered;
+    }, [newsItems, activeFilter]);
 
     return (
         <div className="flex flex-col h-full">

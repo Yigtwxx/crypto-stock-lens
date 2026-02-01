@@ -62,8 +62,8 @@ export default function OraclePanel() {
 
     return (
         <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="p-4 border-b border-oracle-border flex items-center gap-2 bg-gradient-to-r from-oracle-dark via-oracle-dark to-pink/5">
+            {/* Header - Fixed height to align with other panels */}
+            <div className="h-14 px-4 border-b border-oracle-border flex items-center gap-2 bg-gradient-to-r from-oracle-dark via-oracle-dark to-pink/5">
                 <Brain className="w-5 h-5 text-pink" />
                 <h2 className="font-semibold bg-gradient-to-r from-white to-pink bg-clip-text text-transparent">The Oracle</h2>
                 <Sparkles className="w-4 h-4 text-pink ml-1 animate-pulse" />
@@ -209,10 +209,10 @@ export default function OraclePanel() {
                                         <span className="text-xs text-gray-500">1-7 Gün</span>
                                     </div>
                                     <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase ${analysis.sentiment === 'bullish'
-                                            ? 'bg-oracle-bullish/20 text-oracle-bullish border border-oracle-bullish/30'
-                                            : analysis.sentiment === 'bearish'
-                                                ? 'bg-oracle-bearish/20 text-oracle-bearish border border-oracle-bearish/30'
-                                                : 'bg-oracle-neutral/20 text-oracle-neutral border border-oracle-neutral/30'
+                                        ? 'bg-oracle-bullish/20 text-oracle-bullish border border-oracle-bullish/30'
+                                        : analysis.sentiment === 'bearish'
+                                            ? 'bg-oracle-bearish/20 text-oracle-bearish border border-oracle-bearish/30'
+                                            : 'bg-oracle-neutral/20 text-oracle-neutral border border-oracle-neutral/30'
                                         }`}>
                                         {analysis.sentiment === 'bullish' ? '🟢 BUY' :
                                             analysis.sentiment === 'bearish' ? '🔴 SELL' : '🟡 HOLD'}
@@ -226,10 +226,10 @@ export default function OraclePanel() {
                                         <span className="text-xs text-gray-500">1-4 Hafta</span>
                                     </div>
                                     <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase ${analysis.confidence >= 0.7 && analysis.sentiment === 'bullish'
-                                            ? 'bg-oracle-bullish/20 text-oracle-bullish border border-oracle-bullish/30'
-                                            : analysis.confidence >= 0.7 && analysis.sentiment === 'bearish'
-                                                ? 'bg-oracle-bearish/20 text-oracle-bearish border border-oracle-bearish/30'
-                                                : 'bg-oracle-neutral/20 text-oracle-neutral border border-oracle-neutral/30'
+                                        ? 'bg-oracle-bullish/20 text-oracle-bullish border border-oracle-bullish/30'
+                                        : analysis.confidence >= 0.7 && analysis.sentiment === 'bearish'
+                                            ? 'bg-oracle-bearish/20 text-oracle-bearish border border-oracle-bearish/30'
+                                            : 'bg-oracle-neutral/20 text-oracle-neutral border border-oracle-neutral/30'
                                         }`}>
                                         {analysis.confidence >= 0.7 && analysis.sentiment === 'bullish' ? '🟢 BUY' :
                                             analysis.confidence >= 0.7 && analysis.sentiment === 'bearish' ? '🔴 SELL' : '🟡 HOLD'}
@@ -243,10 +243,10 @@ export default function OraclePanel() {
                                         <span className="text-xs text-gray-500">1-6 Ay</span>
                                     </div>
                                     <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase ${analysis.confidence >= 0.8 && analysis.sentiment === 'bullish'
-                                            ? 'bg-oracle-bullish/20 text-oracle-bullish border border-oracle-bullish/30'
-                                            : analysis.confidence >= 0.8 && analysis.sentiment === 'bearish'
-                                                ? 'bg-oracle-bearish/20 text-oracle-bearish border border-oracle-bearish/30'
-                                                : 'bg-oracle-neutral/20 text-oracle-neutral border border-oracle-neutral/30'
+                                        ? 'bg-oracle-bullish/20 text-oracle-bullish border border-oracle-bullish/30'
+                                        : analysis.confidence >= 0.8 && analysis.sentiment === 'bearish'
+                                            ? 'bg-oracle-bearish/20 text-oracle-bearish border border-oracle-bearish/30'
+                                            : 'bg-oracle-neutral/20 text-oracle-neutral border border-oracle-neutral/30'
                                         }`}>
                                         {analysis.confidence >= 0.8 && analysis.sentiment === 'bullish' ? '🟢 BUY' :
                                             analysis.confidence >= 0.8 && analysis.sentiment === 'bearish' ? '🔴 SELL' : '🟡 HOLD'}

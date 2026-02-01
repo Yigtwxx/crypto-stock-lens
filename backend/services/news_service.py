@@ -60,12 +60,14 @@ def parse_feed_date(entry) -> datetime:
 
 # Symbol mappings for different news sources
 # IMPORTANT: Listed in priority order - more specific names first
+# Using exchanges where these coins are actually listed on TradingView
 CRYPTO_SYMBOLS = [
-    # Pi Network (must be first, before generic "PI" matches)
-    ("PI NETWORK", "BINANCE:PIUSDT"),
-    ("PI TOKEN", "BINANCE:PIUSDT"),
-    ("PI COIN", "BINANCE:PIUSDT"),
-    ("PIUSDT", "BINANCE:PIUSDT"),
+    # Pi Network - use OKX (Binance doesn't have PI)
+    ("PI NETWORK", "OKX:PIUSDT"),
+    ("PI TOKEN", "OKX:PIUSDT"),
+    ("PI COIN", "OKX:PIUSDT"),
+    (" PI ", "OKX:PIUSDT"),
+    ("(PI)", "OKX:PIUSDT"),
     
     # Bitcoin - specific patterns
     ("BITCOIN", "BINANCE:BTCUSDT"),
@@ -166,18 +168,56 @@ CRYPTO_SYMBOLS = [
     (" BNB ", "BINANCE:BNBUSDT"),
     ("(BNB)", "BINANCE:BNBUSDT"),
     
-    # Tether
-    ("TETHER", "BINANCE:USDTUSDC"),
-    (" USDT ", "BINANCE:USDTUSDC"),
+    # Tether - use USDC pair
+    ("TETHER", "BINANCE:USDCUSDT"),
+    (" USDT ", "BINANCE:USDCUSDT"),
     
     # ATOM / Cosmos
     ("COSMOS", "BINANCE:ATOMUSDT"),
     ("ATOMUSDT", "BINANCE:ATOMUSDT"),
     (" ATOM ", "BINANCE:ATOMUSDT"),
     ("(ATOM)", "BINANCE:ATOMUSDT"),
+    
+    # Near Protocol
+    ("NEAR PROTOCOL", "BINANCE:NEARUSDT"),
+    ("NEARUSDT", "BINANCE:NEARUSDT"),
+    (" NEAR ", "BINANCE:NEARUSDT"),
+    ("(NEAR)", "BINANCE:NEARUSDT"),
+    
+    # Sui
+    ("SUI NETWORK", "BINANCE:SUIUSDT"),
+    ("SUIUSDT", "BINANCE:SUIUSDT"),
+    (" SUI ", "BINANCE:SUIUSDT"),
+    ("(SUI)", "BINANCE:SUIUSDT"),
+    
+    # Aptos
+    ("APTOS", "BINANCE:APTUSDT"),
+    ("APTUSDT", "BINANCE:APTUSDT"),
+    (" APT ", "BINANCE:APTUSDT"),
+    ("(APT)", "BINANCE:APTUSDT"),
+    
+    # Arbitrum
+    ("ARBITRUM", "BINANCE:ARBUSDT"),
+    ("ARBUSDT", "BINANCE:ARBUSDT"),
+    (" ARB ", "BINANCE:ARBUSDT"),
+    ("(ARB)", "BINANCE:ARBUSDT"),
+    
+    # Optimism
+    ("OPTIMISM", "BINANCE:OPUSDT"),
+    ("OPUSDT", "BINANCE:OPUSDT"),
+    (" OP ", "BINANCE:OPUSDT"),
+    ("(OP)", "BINANCE:OPUSDT"),
 ]
 
 STOCK_SYMBOLS = {
+    # ETFs & Indices (Most common defaults)
+    "SPY": "AMEX:SPY", "S&P 500": "AMEX:SPY", "S&P500": "AMEX:SPY",
+    "QQQ": "NASDAQ:QQQ", "NASDAQ 100": "NASDAQ:QQQ",
+    "DIA": "AMEX:DIA", "DOW JONES": "AMEX:DIA",
+    "IWM": "AMEX:IWM", "RUSSELL": "AMEX:IWM",
+    "VTI": "AMEX:VTI",
+    "VOO": "AMEX:VOO",
+    
     # Tech Giants
     "AAPL": "NASDAQ:AAPL", "APPLE": "NASDAQ:AAPL",
     "TSLA": "NASDAQ:TSLA", "TESLA": "NASDAQ:TSLA",
@@ -189,67 +229,124 @@ STOCK_SYMBOLS = {
     "NFLX": "NASDAQ:NFLX", "NETFLIX": "NASDAQ:NFLX",
     "AMD": "NASDAQ:AMD",
     "INTC": "NASDAQ:INTC", "INTEL": "NASDAQ:INTC",
+    "CRM": "NYSE:CRM", "SALESFORCE": "NYSE:CRM",
+    "ORCL": "NYSE:ORCL", "ORACLE": "NYSE:ORCL",
+    "CSCO": "NASDAQ:CSCO", "CISCO": "NASDAQ:CSCO",
+    "ADBE": "NASDAQ:ADBE", "ADOBE": "NASDAQ:ADBE",
+    
     # Finance
-    "JPM": "NYSE:JPM", "JPMORGAN": "NYSE:JPM",
+    "JPM": "NYSE:JPM", "JPMORGAN": "NYSE:JPM", "JP MORGAN": "NYSE:JPM",
     "BAC": "NYSE:BAC", "BANK OF AMERICA": "NYSE:BAC",
-    "GS": "NYSE:GS", "GOLDMAN": "NYSE:GS",
+    "GS": "NYSE:GS", "GOLDMAN": "NYSE:GS", "GOLDMAN SACHS": "NYSE:GS",
     "MS": "NYSE:MS", "MORGAN STANLEY": "NYSE:MS",
-    "AMP": "NYSE:AMP", "AMERIPRISE": "NYSE:AMP",
-    "LAZ": "NYSE:LAZ", "LAZARD": "NYSE:LAZ",
+    "WFC": "NYSE:WFC", "WELLS FARGO": "NYSE:WFC",
+    "C": "NYSE:C", "CITIGROUP": "NYSE:C", "CITI": "NYSE:C",
+    "V": "NYSE:V", "VISA": "NYSE:V",
+    "MA": "NYSE:MA", "MASTERCARD": "NYSE:MA",
+    "AXP": "NYSE:AXP", "AMERICAN EXPRESS": "NYSE:AXP",
+    "BLK": "NYSE:BLK", "BLACKROCK": "NYSE:BLK",
+    
     # Industrial
     "CAT": "NYSE:CAT", "CATERPILLAR": "NYSE:CAT",
-    "BOEING": "NYSE:BA",
+    "BA": "NYSE:BA", "BOEING": "NYSE:BA",
     "GE": "NYSE:GE", "GENERAL ELECTRIC": "NYSE:GE",
-    "EXP": "NYSE:EXP", "EAGLE MATERIALS": "NYSE:EXP",
+    "HON": "NASDAQ:HON", "HONEYWELL": "NASDAQ:HON",
+    "UPS": "NYSE:UPS",
+    "FDX": "NYSE:FDX", "FEDEX": "NYSE:FDX",
+    "DE": "NYSE:DE", "DEERE": "NYSE:DE", "JOHN DEERE": "NYSE:DE",
+    
     # Airlines & Transport
     "LUV": "NYSE:LUV", "SOUTHWEST": "NYSE:LUV",
     "DAL": "NYSE:DAL", "DELTA": "NYSE:DAL",
     "UAL": "NASDAQ:UAL", "UNITED AIRLINES": "NASDAQ:UAL",
-    # Telecom & Tech
-    "NOK": "NYSE:NOK", "NOKIA": "NYSE:NOK",
-    "SAP": "NYSE:SAP",
-    "NOW": "NYSE:NOW", "SERVICENOW": "NYSE:NOW",
-    "CRM": "NYSE:CRM", "SALESFORCE": "NYSE:CRM",
+    "AAL": "NASDAQ:AAL", "AMERICAN AIRLINES": "NASDAQ:AAL",
+    
+    # Telecom
+    "VZ": "NYSE:VZ", "VERIZON": "NYSE:VZ",
+    "T": "NYSE:T", "AT&T": "NYSE:T",
+    "TMUS": "NASDAQ:TMUS", "T-MOBILE": "NASDAQ:TMUS",
+    
     # Energy
-    "XOM": "NYSE:XOM", "EXXON": "NYSE:XOM",
+    "XOM": "NYSE:XOM", "EXXON": "NYSE:XOM", "EXXONMOBIL": "NYSE:XOM",
     "CVX": "NYSE:CVX", "CHEVRON": "NYSE:CVX",
-    "VLO": "NYSE:VLO", "VALERO": "NYSE:VLO",
+    "COP": "NYSE:COP", "CONOCOPHILLIPS": "NYSE:COP",
+    "OXY": "NYSE:OXY", "OCCIDENTAL": "NYSE:OXY",
+    "SLB": "NYSE:SLB", "SCHLUMBERGER": "NYSE:SLB",
+    
     # Consumer
     "WMT": "NYSE:WMT", "WALMART": "NYSE:WMT",
+    "COST": "NASDAQ:COST", "COSTCO": "NASDAQ:COST",
+    "TGT": "NYSE:TGT", "TARGET": "NYSE:TGT",
+    "HD": "NYSE:HD", "HOME DEPOT": "NYSE:HD",
+    "LOW": "NYSE:LOW", "LOWES": "NYSE:LOW",
     "KO": "NYSE:KO", "COCA-COLA": "NYSE:KO", "COKE": "NYSE:KO",
-    "PEP": "NASDAQ:PEP", "PEPSI": "NASDAQ:PEP",
-    "MCD": "NYSE:MCD", "MCDONALD": "NYSE:MCD",
-    # Pharma
-    "JNJ": "NYSE:JNJ", "JOHNSON": "NYSE:JNJ",
+    "PEP": "NASDAQ:PEP", "PEPSI": "NASDAQ:PEP", "PEPSICO": "NASDAQ:PEP",
+    "MCD": "NYSE:MCD", "MCDONALD": "NYSE:MCD", "MCDONALDS": "NYSE:MCD",
+    "SBUX": "NASDAQ:SBUX", "STARBUCKS": "NASDAQ:SBUX",
+    "NKE": "NYSE:NKE", "NIKE": "NYSE:NKE",
+    "DIS": "NYSE:DIS", "DISNEY": "NYSE:DIS", "WALT DISNEY": "NYSE:DIS",
+    
+    # Pharma & Healthcare
+    "JNJ": "NYSE:JNJ", "JOHNSON": "NYSE:JNJ", "JOHNSON & JOHNSON": "NYSE:JNJ",
     "PFE": "NYSE:PFE", "PFIZER": "NYSE:PFE",
     "MRNA": "NASDAQ:MRNA", "MODERNA": "NASDAQ:MRNA",
-    # Other
-    "XRX": "NASDAQ:XRX", "XEROX": "NASDAQ:XRX",
-    "PHM": "NYSE:PHM", "PULTEGROUP": "NYSE:PHM", "PULTE": "NYSE:PHM",
-    "RCL": "NYSE:RCL", "ROYAL CARIBBEAN": "NYSE:RCL",
-    "BC": "NYSE:BC", "BRUNSWICK": "NYSE:BC",
-    "NWS": "NASDAQ:NWS", "NEWS CORP": "NASDAQ:NWS",
-    "DOW": "NYSE:DOW",
+    "UNH": "NYSE:UNH", "UNITEDHEALTH": "NYSE:UNH",
+    "CVS": "NYSE:CVS",
+    "ABBV": "NYSE:ABBV", "ABBVIE": "NYSE:ABBV",
+    "LLY": "NYSE:LLY", "ELI LILLY": "NYSE:LLY", "LILLY": "NYSE:LLY",
+    "MRK": "NYSE:MRK", "MERCK": "NYSE:MRK",
+    
+    # Semiconductors
+    "AVGO": "NASDAQ:AVGO", "BROADCOM": "NASDAQ:AVGO",
+    "QCOM": "NASDAQ:QCOM", "QUALCOMM": "NASDAQ:QCOM",
+    "TXN": "NASDAQ:TXN", "TEXAS INSTRUMENTS": "NASDAQ:TXN",
+    "MU": "NASDAQ:MU", "MICRON": "NASDAQ:MU",
+    "AMAT": "NASDAQ:AMAT", "APPLIED MATERIALS": "NASDAQ:AMAT",
+    "LRCX": "NASDAQ:LRCX", "LAM RESEARCH": "NASDAQ:LRCX",
+    "KLAC": "NASDAQ:KLAC",
+    "ASML": "NASDAQ:ASML",
+    "TSM": "NYSE:TSM", "TAIWAN SEMICONDUCTOR": "NYSE:TSM", "TSMC": "NYSE:TSM",
 }
 
 
-def detect_symbol(text: str, asset_type: str) -> Optional[str]:
-    """Detect trading symbol from news text with priority-based matching."""
+def detect_symbol(text: str, asset_type: str, title: str = "") -> Optional[str]:
+    """
+    Detect trading symbol from news text with intelligent priority-based matching.
+    
+    Priority:
+    1. Exact match in title (most important)
+    2. Exact match in body
+    3. Longer/more specific matches > shorter matches
+    """
     # Normalize text for matching
+    title_upper = " " + title.upper() + " " if title else ""
     text_upper = " " + text.upper() + " "  # Add spaces for boundary matching
     
     if asset_type == "crypto":
-        # CRYPTO_SYMBOLS is a list of tuples, ordered by priority
+        # First, try to find matches in title (highest priority)
+        for keyword, tradingview in CRYPTO_SYMBOLS:
+            if keyword in title_upper:
+                return tradingview
+        
+        # Then try body text
         for keyword, tradingview in CRYPTO_SYMBOLS:
             if keyword in text_upper:
                 return tradingview
+        
         return "BINANCE:BTCUSDT"  # Default
     else:
-        # STOCK_SYMBOLS is still a dict
+        # For stocks, also prioritize title matches
+        # First check title
+        for keyword, tradingview in STOCK_SYMBOLS.items():
+            if keyword in title_upper:
+                return tradingview
+        
+        # Then check body
         for keyword, tradingview in STOCK_SYMBOLS.items():
             if keyword in text_upper:
                 return tradingview
-        return "NASDAQ:SPY"  # Default to S&P 500
+        
+        return "AMEX:SPY"  # Default to S&P 500 ETF
 
 
 def generate_news_id(title: str, source: str) -> str:
@@ -277,7 +374,7 @@ async def fetch_cryptocompare_news() -> List[NewsItem]:
                     body = news.get("body", "")
                     
                     # Detect crypto symbol from title/body
-                    symbol = detect_symbol(f"{title} {body}", "crypto")
+                    symbol = detect_symbol(body, "crypto", title)
                     
                     # CryptoCompare returns UTC timestamp, convert to local time (UTC+3)
                     pub_timestamp = news.get("published_on", datetime.now().timestamp())
@@ -322,7 +419,7 @@ async def fetch_coindesk_rss() -> List[NewsItem]:
             import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(f"{title} {summary}", "crypto")
+            symbol = detect_symbol(summary, "crypto", title)
             
             pub_date = parse_feed_date(entry)
             
@@ -358,7 +455,7 @@ async def fetch_cointelegraph_rss() -> List[NewsItem]:
             import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(f"{title} {summary}", "crypto")
+            symbol = detect_symbol(summary, "crypto", title)
             
             pub_date = parse_feed_date(entry)
             
@@ -395,7 +492,7 @@ async def fetch_marketwatch_rss() -> List[NewsItem]:
             import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(f"{title} {summary}", "stock")
+            symbol = detect_symbol(summary, "stock", title)
             pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
@@ -430,7 +527,7 @@ async def fetch_investing_rss() -> List[NewsItem]:
             import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(f"{title} {summary}", "stock")
+            symbol = detect_symbol(summary, "stock", title)
             pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
@@ -465,7 +562,7 @@ async def fetch_seeking_alpha_rss() -> List[NewsItem]:
             import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(f"{title} {summary}", "stock")
+            symbol = detect_symbol(summary, "stock", title)
             pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
@@ -506,7 +603,7 @@ async def fetch_bloomberght_rss() -> List[NewsItem]:
             crypto_keywords = ["bitcoin", "btc", "ethereum", "eth", "kripto", "coin", "altcoin"]
             is_crypto = any(kw in title.lower() or kw in summary.lower() for kw in crypto_keywords)
             asset_type = "crypto" if is_crypto else "stock"
-            symbol = detect_symbol(f"{title} {summary}", asset_type)
+            symbol = detect_symbol(summary, asset_type, title)
             
             pub_date = parse_feed_date(entry)
             
@@ -546,7 +643,7 @@ async def fetch_paraanaliz_rss() -> List[NewsItem]:
             crypto_keywords = ["bitcoin", "btc", "ethereum", "eth", "kripto", "coin"]
             is_crypto = any(kw in title.lower() or kw in summary.lower() for kw in crypto_keywords)
             asset_type = "crypto" if is_crypto else "stock"
-            symbol = detect_symbol(f"{title} {summary}", asset_type)
+            symbol = detect_symbol(summary, asset_type, title)
             
             pub_date = parse_feed_date(entry)
             
@@ -582,7 +679,7 @@ async def fetch_koinbulteni_rss() -> List[NewsItem]:
             import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(f"{title} {summary}", "crypto")
+            symbol = detect_symbol(summary, "crypto", title)
             
             pub_date = parse_feed_date(entry)
             

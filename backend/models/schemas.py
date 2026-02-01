@@ -43,3 +43,38 @@ class NewsResponse(BaseModel):
     """Schema for news list response."""
     items: List[NewsItem]
     total: int
+
+
+class FearGreedHistory(BaseModel):
+    """Schema for Fear & Greed historical data point."""
+    value: int
+    classification: str
+    date: str
+
+
+class FearGreedData(BaseModel):
+    """Schema for Fear & Greed Index response."""
+    value: int  # 0-100
+    classification: str  # "Extreme Fear", "Fear", "Neutral", "Greed", "Extreme Greed"
+    timestamp: str
+    history: List[FearGreedHistory] = []
+
+
+class CoinData(BaseModel):
+    """Schema for individual coin data."""
+    symbol: str
+    price: float
+    change_24h: float
+    volume_24h: float
+    high_24h: float
+    low_24h: float
+
+
+class MarketOverview(BaseModel):
+    """Schema for market overview response."""
+    coins: List[CoinData]
+    total_volume_24h: float
+    total_market_cap: float
+    btc_dominance: float
+    active_cryptocurrencies: int
+    timestamp: str

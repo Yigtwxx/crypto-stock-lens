@@ -11,16 +11,14 @@ export default function ChartPanel() {
 
     return (
         <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="p-4 border-b border-oracle-border flex items-center justify-between bg-gradient-to-r from-oracle-dark via-oracle-dark to-teal/5">
-                <div className="flex items-center gap-3">
-                    <BarChart3 className="w-5 h-5 text-teal" />
-                    <div>
-                        <h2 className="font-semibold bg-gradient-to-r from-white to-teal bg-clip-text text-transparent">The Chart</h2>
-                        <p className="text-xs text-gray-500">{chartSymbol}</p>
-                    </div>
-                </div>
+            {/* Header - Fixed height to align with other panels */}
+            <div className="h-14 px-4 border-b border-oracle-border flex items-center justify-between bg-gradient-to-r from-oracle-dark via-oracle-dark to-teal/5">
                 <div className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-teal" />
+                    <h2 className="font-semibold bg-gradient-to-r from-white to-teal bg-clip-text text-transparent">The Chart</h2>
+                    <span className="text-xs text-gray-500 ml-1">{chartSymbol.split(':')[1] || chartSymbol}</span>
+                </div>
+                <div className="flex items-center gap-1">
                     {/* Alert Button */}
                     <button
                         onClick={() => toggleAlertModal(true)}

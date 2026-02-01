@@ -73,3 +73,52 @@ export async function fetchCurrentPrice(symbol: string): Promise<number | null> 
         return null;
     }
 }
+
+// Fear & Greed Index types
+export interface FearGreedHistory {
+    value: number;
+    classification: string;
+    date: string;
+}
+
+export interface FearGreedData {
+    value: number;
+    classification: string;
+    timestamp: string;
+    history: FearGreedHistory[];
+}
+
+// Market Overview types
+export interface CoinData {
+    symbol: string;
+    price: number;
+    change_24h: number;
+    volume_24h: number;
+    high_24h: number;
+    low_24h: number;
+}
+
+export interface MarketOverview {
+    coins: CoinData[];
+    total_volume_24h: number;
+    total_market_cap: number;
+    btc_dominance: number;
+    active_cryptocurrencies: number;
+    timestamp: string;
+}
+
+export async function fetchFearGreedIndex(): Promise<FearGreedData> {
+    const response = await fetch(`${API_BASE}/api/fear-greed`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch Fear & Greed Index');
+    }
+    return response.json();
+}
+
+export async function fetchMarketOverview(): Promise<MarketOverview> {
+    const response = await fetch(`${API_BASE}/api/market-overview`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch market overview');
+    }
+    return response.json();
+}

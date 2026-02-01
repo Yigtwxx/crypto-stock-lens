@@ -21,6 +21,7 @@ export default function Dashboard() {
         <div className="h-screen flex flex-col overflow-hidden">
             {/* Header */}
             <header className="h-12 border-b border-oracle-border bg-gradient-to-r from-oracle-dark via-oracle-dark to-violet/5 backdrop-blur-md flex items-center px-6 sticky top-0 z-50">
+                {/* Logo - Left */}
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet via-pink to-cyan flex items-center justify-center shadow-lg shadow-pink/20">
                         <Zap className="w-4 h-4 text-white" />
@@ -30,31 +31,34 @@ export default function Dashboard() {
                     </h1>
                 </div>
 
-                {/* Tab Navigation */}
-                <div className="flex items-center gap-1 ml-8 bg-oracle-darker/50 rounded-lg p-1 border border-oracle-border">
-                    <button
-                        onClick={() => setActiveTab('dashboard')}
-                        className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'dashboard'
-                                ? 'bg-oracle-accent text-white shadow-lg shadow-oracle-accent/30'
-                                : 'text-gray-400 hover:text-white hover:bg-oracle-card'
-                            }`}
-                    >
-                        <LayoutDashboard className="w-4 h-4" />
-                        <span>Dashboard</span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('overview')}
-                        className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'overview'
-                                ? 'bg-oracle-accent text-white shadow-lg shadow-oracle-accent/30'
-                                : 'text-gray-400 hover:text-white hover:bg-oracle-card'
-                            }`}
-                    >
-                        <BarChart3 className="w-4 h-4" />
-                        <span>Overview</span>
-                    </button>
+                {/* Tab Navigation - Centered */}
+                <div className="flex-1 flex justify-center">
+                    <div className="flex items-center gap-6">
+                        <button
+                            onClick={() => setActiveTab('dashboard')}
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'dashboard'
+                                    ? 'text-cyan'
+                                    : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <LayoutDashboard className="w-4 h-4" />
+                            <span>Dashboard</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('overview')}
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'overview'
+                                    ? 'text-cyan'
+                                    : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <BarChart3 className="w-4 h-4" />
+                            <span>Overview</span>
+                        </button>
+                    </div>
                 </div>
 
-                <span className="text-xs text-gray-500 hidden sm:inline ml-auto">Financial Intelligence Terminal</span>
+                {/* Right side */}
+                <span className="text-xs text-gray-500 hidden sm:inline">Financial Intelligence Terminal</span>
             </header>
 
             {/* Main Content - Conditional based on active tab */}

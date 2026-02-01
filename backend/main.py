@@ -14,11 +14,13 @@ from datetime import datetime, timedelta
 import random
 import hashlib
 
-from models.schemas import NewsItem, NewsResponse, AnalysisRequest, SentimentAnalysis
+from models.schemas import NewsItem, NewsResponse, AnalysisRequest, SentimentAnalysis, FearGreedData, MarketOverview
 from services.news_service import fetch_all_news
 from services.ollama_service import analyze_news_with_ollama, generate_prediction_hash, check_ollama_health
 from services.technical_analysis_service import get_technical_analysis
 from services.rag_service import get_rag_context, store_news_with_outcome, get_collection_stats
+from services.fear_greed_service import fetch_fear_greed_index
+from services.market_overview_service import fetch_market_overview
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TERMINAL COLORS & LOGGING
@@ -446,6 +448,28 @@ async def get_rag_stats():
         "status": stats.get("status", "unknown"),
         "message": f"RAG system has {stats.get('total_items', 0)} historical news items for learning"
     }
+
+
+@app.get("/api/fear-greed", response_model=FearGreedData)
+async def get_fear_greed():
+    """
+    Get Crypto Fear & Greed Index from alternative.me API.
+    
+    Values: 0-25 Extreme Fear, 26-46 Fear, 47-54 Neutral, 55-75 Greed, 76-100 Extreme Greed
+    """
+    data = await fetch_fear_greed_index()
+    return FearGreedData(**data)
+
+
+@app.get("/api/market-overview", response_model=MarketOverview)
+async def get_market_overview():
+    """
+    Get market overview with top coin prices and global stats.
+    
+    Includes: BTC, ETH, BNB, SOL, XRP, ADA, DOGE, AVAX
+    """
+    data = await fetch_market_overview()
+    return MarketOverview(**data)
 
 
 if __name__ == "__main__":

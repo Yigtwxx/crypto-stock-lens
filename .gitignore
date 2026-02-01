@@ -60,3 +60,8 @@ coverage/
 # Debug
 *.log
 logs/
+
+# ChromaDB / RAG Data
+backend/data/rag/
+*.sqlite3
+*.bin

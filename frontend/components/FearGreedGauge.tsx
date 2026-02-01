@@ -139,8 +139,8 @@ export default function FearGreedGauge({ data, isLoading, size = 'md' }: FearGre
                 </g>
 
                 {/* Labels */}
-                <text x="15" y="105" fill="rgba(255,255,255,0.5)" fontSize="10" textAnchor="start">Fear</text>
-                <text x="185" y="105" fill="rgba(255,255,255,0.5)" fontSize="10" textAnchor="end">Greed</text>
+                <text x="20" y="115" fill="rgba(255,255,255,0.5)" fontSize="9" textAnchor="start">Fear</text>
+                <text x="180" y="115" fill="rgba(255,255,255,0.5)" fontSize="9" textAnchor="end">Greed</text>
             </svg>
 
             {/* Value display */}

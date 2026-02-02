@@ -117,8 +117,8 @@ async def fetch_market_overview() -> dict:
                 and float(t.get("quoteVolume", 0)) > 1000000  # Min $1M volume
             ]
             
-            # Sort by quote volume (trading volume in USDT) descending
-            usdt_tickers.sort(key=lambda x: float(x.get("quoteVolume", 0)), reverse=True)
+            # Sort by market cap (from CoinGecko metadata) descending
+            # We'll re-sort after enriching with metadata
             
             # Take top N coins
             for ticker in usdt_tickers[:TOP_COINS_COUNT]:
@@ -150,6 +150,12 @@ async def fetch_market_overview() -> dict:
                     "market_cap_rank": meta.get("market_cap_rank", 0)
                 })
             
+            # Sort coins by market cap rank (from CoinGecko)
+            coins_data.sort(key=lambda x: (x.get("market_cap_rank", 999) if x.get("market_cap_rank", 0) > 0 else 999))
+            
+            # Take only top N after sorting
+            coins_data = coins_data[:TOP_COINS_COUNT]
+            
             # Get global market data from CoinGecko (optional, may fail)
             global_data = await _fetch_global_market_data(client)
             
@@ -158,6 +164,7 @@ async def fetch_market_overview() -> dict:
                 "total_volume_24h": total_volume_24h,
                 "total_market_cap": global_data.get("total_market_cap", 0),
                 "btc_dominance": global_data.get("btc_dominance", 0),
+                "eth_dominance": global_data.get("eth_dominance", 0),
                 "active_cryptocurrencies": global_data.get("active_cryptocurrencies", 0),
                 "timestamp": datetime.now().isoformat()
             }
@@ -180,6 +187,7 @@ async def fetch_market_overview() -> dict:
         "total_volume_24h": 0,
         "total_market_cap": 0,
         "btc_dominance": 0,
+        "eth_dominance": 0,
         "active_cryptocurrencies": 0,
         "timestamp": datetime.now().isoformat()
     }
@@ -197,6 +205,7 @@ async def _fetch_global_market_data(client: httpx.AsyncClient) -> dict:
             return {
                 "total_market_cap": data.get("total_market_cap", {}).get("usd", 0),
                 "btc_dominance": data.get("market_cap_percentage", {}).get("btc", 0),
+                "eth_dominance": data.get("market_cap_percentage", {}).get("eth", 0),
                 "active_cryptocurrencies": data.get("active_cryptocurrencies", 0)
             }
     except Exception as e:

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import NewsFeed from '@/components/NewsFeed';
 import ChartPanel from '@/components/ChartPanel';
 import OraclePanel from '@/components/OraclePanel';
@@ -16,6 +16,23 @@ export default function Dashboard() {
     const [activeTab, setActiveTab] = useState<TabType>('dashboard');
     const [overviewType, setOverviewType] = useState<OverviewType>('crypto');
     const [showDropdown, setShowDropdown] = useState(false);
+    const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Handle dropdown open with delay cancellation
+    const handleDropdownOpen = () => {
+        if (closeTimeoutRef.current) {
+            clearTimeout(closeTimeoutRef.current);
+            closeTimeoutRef.current = null;
+        }
+        setShowDropdown(true);
+    };
+
+    // Handle dropdown close with delay
+    const handleDropdownClose = () => {
+        closeTimeoutRef.current = setTimeout(() => {
+            setShowDropdown(false);
+        }, 200); // 200ms delay before closing
+    };
 
     // Initialize price alert monitoring
     usePriceAlerts();
@@ -57,8 +74,8 @@ export default function Dashboard() {
                         {/* Overview Dropdown */}
                         <div
                             className="relative"
-                            onMouseEnter={() => setShowDropdown(true)}
-                            onMouseLeave={() => setShowDropdown(false)}
+                            onMouseEnter={handleDropdownOpen}
+                            onMouseLeave={handleDropdownClose}
                         >
                             <button
                                 className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'overview'
@@ -71,35 +88,37 @@ export default function Dashboard() {
                                 <ChevronDown className={`w-3 h-3 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
                             </button>
 
-                            {/* Dropdown Menu */}
+                            {/* Dropdown Menu - using pt-2 for seamless hover area */}
                             {showDropdown && (
-                                <div className="absolute top-full left-0 mt-1 w-48 py-2 bg-oracle-card border border-oracle-border rounded-lg shadow-xl shadow-black/50 z-50">
-                                    <button
-                                        onClick={() => handleOverviewSelect('crypto')}
-                                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${overviewType === 'crypto' && activeTab === 'overview'
+                                <div className="absolute top-full left-0 pt-2 z-50">
+                                    <div className="w-48 py-2 bg-oracle-card border border-oracle-border rounded-lg shadow-xl shadow-black/50">
+                                        <button
+                                            onClick={() => handleOverviewSelect('crypto')}
+                                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${overviewType === 'crypto' && activeTab === 'overview'
                                                 ? 'bg-violet/20 text-cyan'
                                                 : 'text-gray-300 hover:bg-oracle-border/50 hover:text-white'
-                                            }`}
-                                    >
-                                        <Bitcoin className="w-4 h-4 text-orange-400" />
-                                        <span>Kripto</span>
-                                        {overviewType === 'crypto' && activeTab === 'overview' && (
-                                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan" />
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={() => handleOverviewSelect('nasdaq')}
-                                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${overviewType === 'nasdaq' && activeTab === 'overview'
+                                                }`}
+                                        >
+                                            <Bitcoin className="w-4 h-4 text-orange-400" />
+                                            <span>Kripto</span>
+                                            {overviewType === 'crypto' && activeTab === 'overview' && (
+                                                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan" />
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={() => handleOverviewSelect('nasdaq')}
+                                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${overviewType === 'nasdaq' && activeTab === 'overview'
                                                 ? 'bg-violet/20 text-cyan'
                                                 : 'text-gray-300 hover:bg-oracle-border/50 hover:text-white'
-                                            }`}
-                                    >
-                                        <LineChart className="w-4 h-4 text-green-400" />
-                                        <span>NASDAQ</span>
-                                        {overviewType === 'nasdaq' && activeTab === 'overview' && (
-                                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan" />
-                                        )}
-                                    </button>
+                                                }`}
+                                        >
+                                            <LineChart className="w-4 h-4 text-green-400" />
+                                            <span>NASDAQ</span>
+                                            {overviewType === 'nasdaq' && activeTab === 'overview' && (
+                                                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan" />
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>

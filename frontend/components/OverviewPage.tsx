@@ -18,16 +18,125 @@ import {
     Zap
 } from 'lucide-react';
 
-// Coin data with real logos from CoinGecko CDN
+// Coin data with real logos from CoinGecko CDN - expanded for top 50 coins
 const coinData: Record<string, { logo: string; color: string; name: string }> = {
     BTC: { logo: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png', color: '#f7931a', name: 'Bitcoin' },
     ETH: { logo: 'https://assets.coingecko.com/coins/images/279/small/ethereum.png', color: '#627eea', name: 'Ethereum' },
     BNB: { logo: 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png', color: '#f3ba2f', name: 'BNB' },
     SOL: { logo: 'https://assets.coingecko.com/coins/images/4128/small/solana.png', color: '#9945ff', name: 'Solana' },
-    XRP: { logo: 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png', color: '#23292f', name: 'XRP' },
+    XRP: { logo: 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png', color: '#ffffff', name: 'XRP' },
     ADA: { logo: 'https://assets.coingecko.com/coins/images/975/small/cardano.png', color: '#0033ad', name: 'Cardano' },
     DOGE: { logo: 'https://assets.coingecko.com/coins/images/5/small/dogecoin.png', color: '#c3a634', name: 'Dogecoin' },
-    AVAX: { logo: 'https://assets.coingecko.com/coins/images/12559/small/Avalanche_Circle_RedWhite_Trans.png', color: '#e84142', name: 'Avalanche' }
+    AVAX: { logo: 'https://assets.coingecko.com/coins/images/12559/small/Avalanche_Circle_RedWhite_Trans.png', color: '#e84142', name: 'Avalanche' },
+    LINK: { logo: 'https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png', color: '#2a5ada', name: 'Chainlink' },
+    DOT: { logo: 'https://assets.coingecko.com/coins/images/12171/small/polkadot.png', color: '#e6007a', name: 'Polkadot' },
+    MATIC: { logo: 'https://assets.coingecko.com/coins/images/4713/small/matic-token-icon.png', color: '#8247e5', name: 'Polygon' },
+    POL: { logo: 'https://assets.coingecko.com/coins/images/4713/small/matic-token-icon.png', color: '#8247e5', name: 'Polygon' },
+    SHIB: { logo: 'https://assets.coingecko.com/coins/images/11939/small/shiba.png', color: '#ffa409', name: 'Shiba Inu' },
+    TRX: { logo: 'https://assets.coingecko.com/coins/images/1094/small/tron-logo.png', color: '#ff0013', name: 'TRON' },
+    UNI: { logo: 'https://assets.coingecko.com/coins/images/12504/small/uniswap-uni.png', color: '#ff007a', name: 'Uniswap' },
+    ATOM: { logo: 'https://assets.coingecko.com/coins/images/1481/small/cosmos_hub.png', color: '#2e3148', name: 'Cosmos' },
+    LTC: { logo: 'https://assets.coingecko.com/coins/images/2/small/litecoin.png', color: '#bfbbbb', name: 'Litecoin' },
+    ETC: { logo: 'https://assets.coingecko.com/coins/images/453/small/ethereum-classic-logo.png', color: '#328332', name: 'Ethereum Classic' },
+    XLM: { logo: 'https://assets.coingecko.com/coins/images/100/small/Stellar_symbol_black_RGB.png', color: '#14b6e7', name: 'Stellar' },
+    BCH: { logo: 'https://assets.coingecko.com/coins/images/780/small/bitcoin-cash-circle.png', color: '#8dc351', name: 'Bitcoin Cash' },
+    NEAR: { logo: 'https://assets.coingecko.com/coins/images/10365/small/near.jpg', color: '#00c08b', name: 'NEAR Protocol' },
+    APT: { logo: 'https://assets.coingecko.com/coins/images/26455/small/aptos_round.png', color: '#4cd080', name: 'Aptos' },
+    FIL: { logo: 'https://assets.coingecko.com/coins/images/12817/small/filecoin.png', color: '#0090ff', name: 'Filecoin' },
+    ARB: { logo: 'https://assets.coingecko.com/coins/images/16547/small/photo_2023-03-29_21.47.00.jpeg', color: '#28a0f0', name: 'Arbitrum' },
+    OP: { logo: 'https://assets.coingecko.com/coins/images/25244/small/Optimism.png', color: '#ff0420', name: 'Optimism' },
+    VET: { logo: 'https://assets.coingecko.com/coins/images/1167/small/VeChain-Logo-768x725.png', color: '#15bdff', name: 'VeChain' },
+    ALGO: { logo: 'https://assets.coingecko.com/coins/images/4380/small/download.png', color: '#000000', name: 'Algorand' },
+    AAVE: { logo: 'https://assets.coingecko.com/coins/images/12645/small/AAVE.png', color: '#b6509e', name: 'Aave' },
+    FTM: { logo: 'https://assets.coingecko.com/coins/images/4001/small/Fantom_round.png', color: '#1969ff', name: 'Fantom' },
+    SAND: { logo: 'https://assets.coingecko.com/coins/images/12129/small/sandbox_logo.jpg', color: '#00adef', name: 'The Sandbox' },
+    MANA: { logo: 'https://assets.coingecko.com/coins/images/878/small/decentraland-mana.png', color: '#ff2d55', name: 'Decentraland' },
+    AXS: { logo: 'https://assets.coingecko.com/coins/images/13029/small/axie_infinity_logo.png', color: '#0055d5', name: 'Axie Infinity' },
+    THETA: { logo: 'https://assets.coingecko.com/coins/images/2538/small/theta-token-logo.png', color: '#2ab8e6', name: 'Theta Network' },
+    EGLD: { logo: 'https://assets.coingecko.com/coins/images/12335/small/multiversx.png', color: '#23f7dd', name: 'MultiversX' },
+    XTZ: { logo: 'https://assets.coingecko.com/coins/images/976/small/Tezos-logo.png', color: '#2c7df7', name: 'Tezos' },
+    EOS: { logo: 'https://assets.coingecko.com/coins/images/738/small/eos-eos-logo.png', color: '#000000', name: 'EOS' },
+    FLOW: { logo: 'https://assets.coingecko.com/coins/images/13446/small/5f6294c0c7a8cda55cb1c936_Flow_Wordmark.png', color: '#00ef8b', name: 'Flow' },
+    CHZ: { logo: 'https://assets.coingecko.com/coins/images/8834/small/CHZ_Token_updated.png', color: '#cd0124', name: 'Chiliz' },
+    GALA: { logo: 'https://assets.coingecko.com/coins/images/12493/small/GALA-COINGECKO.png', color: '#000000', name: 'Gala' },
+    CRV: { logo: 'https://assets.coingecko.com/coins/images/12124/small/Curve.png', color: '#ff2d2d', name: 'Curve DAO' },
+    LDO: { logo: 'https://assets.coingecko.com/coins/images/13573/small/Lido_DAO.png', color: '#00a3ff', name: 'Lido DAO' },
+    IMX: { logo: 'https://assets.coingecko.com/coins/images/17233/small/immutableX-symbol-BLK-RGB.png', color: '#17b5cb', name: 'Immutable' },
+    RENDER: { logo: 'https://assets.coingecko.com/coins/images/11636/small/rndr.png', color: '#000000', name: 'Render' },
+    INJ: { logo: 'https://assets.coingecko.com/coins/images/12882/small/Secondary_Symbol.png', color: '#00f2fe', name: 'Injective' },
+    SUI: { logo: 'https://assets.coingecko.com/coins/images/26375/small/sui_asset.jpeg', color: '#4da2ff', name: 'Sui' },
+    SEI: { logo: 'https://assets.coingecko.com/coins/images/28205/small/Sei_Logo_-_Transparent.png', color: '#9c1c1c', name: 'Sei' },
+    TIA: { logo: 'https://assets.coingecko.com/coins/images/31967/small/tia.jpg', color: '#7b2bf9', name: 'Celestia' },
+    PEPE: { logo: 'https://assets.coingecko.com/coins/images/29850/small/pepe-token.jpeg', color: '#479f53', name: 'Pepe' },
+    WIF: { logo: 'https://assets.coingecko.com/coins/images/33566/small/dogwifhat.jpg', color: '#c4a574', name: 'dogwifhat' },
+    BONK: { logo: 'https://assets.coingecko.com/coins/images/28600/small/bonk.jpg', color: '#f9a825', name: 'Bonk' },
+    FLOKI: { logo: 'https://assets.coingecko.com/coins/images/16746/small/PNG_image.png', color: '#f5a623', name: 'Floki' },
+    FET: { logo: 'https://assets.coingecko.com/coins/images/5681/small/Fetch.jpg', color: '#1c1c1c', name: 'Fetch.ai' },
+    RNDR: { logo: 'https://assets.coingecko.com/coins/images/11636/small/rndr.png', color: '#000000', name: 'Render' },
+    GRT: { logo: 'https://assets.coingecko.com/coins/images/13397/small/Graph_Token.png', color: '#6747ed', name: 'The Graph' },
+    STX: { logo: 'https://assets.coingecko.com/coins/images/2069/small/Stacks_logo_full.png', color: '#5546ff', name: 'Stacks' },
+    MKR: { logo: 'https://assets.coingecko.com/coins/images/1364/small/Mark_Maker.png', color: '#1aab9b', name: 'Maker' },
+    RUNE: { logo: 'https://assets.coingecko.com/coins/images/6595/small/Rune200x200.png', color: '#33ff99', name: 'THORChain' },
+    WLD: { logo: 'https://assets.coingecko.com/coins/images/31069/small/worldcoin.jpeg', color: '#000000', name: 'Worldcoin' },
+    TAO: { logo: 'https://assets.coingecko.com/coins/images/28452/small/ARUsPeNQ_400x400.jpeg', color: '#000000', name: 'Bittensor' },
+    JUP: { logo: 'https://assets.coingecko.com/coins/images/34188/small/jup.png', color: '#18e299', name: 'Jupiter' },
+    STRK: { logo: 'https://assets.coingecko.com/coins/images/26433/small/starknet.png', color: '#ec796b', name: 'Starknet' },
+    NOT: { logo: 'https://assets.coingecko.com/coins/images/36934/small/notcoin_logo.jpg', color: '#000000', name: 'Notcoin' },
+    TON: { logo: 'https://assets.coingecko.com/coins/images/17980/small/ton_symbol.png', color: '#0098ea', name: 'Toncoin' },
+    JASMY: { logo: 'https://assets.coingecko.com/coins/images/13876/small/JASMY200x200.jpg', color: '#ff7b00', name: 'JasmyCoin' },
+    HBAR: { logo: 'https://assets.coingecko.com/coins/images/3688/small/hbar.png', color: '#000000', name: 'Hedera' },
+    ICP: { logo: 'https://assets.coingecko.com/coins/images/14495/small/Internet_Computer_logo.png', color: '#29abe2', name: 'Internet Computer' },
+    KAS: { logo: 'https://assets.coingecko.com/coins/images/25751/small/kaspa-icon-exchanges.png', color: '#70c7ba', name: 'Kaspa' },
+    ENS: { logo: 'https://assets.coingecko.com/coins/images/19785/small/acatxTm8_400x400.jpg', color: '#5298ff', name: 'Ethereum Name Service' },
+    PYTH: { logo: 'https://assets.coingecko.com/coins/images/31924/small/pyth.png', color: '#6633cc', name: 'Pyth Network' },
+    ORDI: { logo: 'https://assets.coingecko.com/coins/images/30162/small/ordi.png', color: '#000000', name: 'ORDI' },
+    BLUR: { logo: 'https://assets.coingecko.com/coins/images/28453/small/blur.png', color: '#ff6b00', name: 'Blur' },
+    MASK: { logo: 'https://assets.coingecko.com/coins/images/14051/small/Mask_Network.jpg', color: '#1c68f3', name: 'Mask Network' },
+    APE: { logo: 'https://assets.coingecko.com/coins/images/24383/small/apecoin.jpg', color: '#0038ff', name: 'ApeCoin' },
+    CAKE: { logo: 'https://assets.coingecko.com/coins/images/12632/small/pancakeswap-cake-logo_%281%29.png', color: '#d1884f', name: 'PancakeSwap' },
+    SNX: { logo: 'https://assets.coingecko.com/coins/images/3406/small/SNX.png', color: '#00d1ff', name: 'Synthetix' },
+    COMP: { logo: 'https://assets.coingecko.com/coins/images/10775/small/COMP.png', color: '#00d395', name: 'Compound' },
+    CRO: { logo: 'https://assets.coingecko.com/coins/images/7310/small/cro_token_logo.png', color: '#002d74', name: 'Cronos' },
+    QNT: { logo: 'https://assets.coingecko.com/coins/images/3370/small/5ZOu7brX_400x400.jpg', color: '#000000', name: 'Quant' },
+    KAVA: { logo: 'https://assets.coingecko.com/coins/images/9761/small/kava.png', color: '#ff433e', name: 'Kava' },
+    ZEC: { logo: 'https://assets.coingecko.com/coins/images/486/small/circle-zcash-color.png', color: '#f4b728', name: 'Zcash' },
+    MINA: { logo: 'https://assets.coingecko.com/coins/images/15628/small/JM4_vQ34_400x400.png', color: '#e39100', name: 'Mina Protocol' },
+    NEO: { logo: 'https://assets.coingecko.com/coins/images/480/small/NEO_512_512.png', color: '#00e599', name: 'NEO' },
+    XMR: { logo: 'https://assets.coingecko.com/coins/images/69/small/monero_logo.png', color: '#ff6600', name: 'Monero' },
+    IOTA: { logo: 'https://assets.coingecko.com/coins/images/692/small/IOTA_Swirl.png', color: '#131f37', name: 'IOTA' },
+    ZIL: { logo: 'https://assets.coingecko.com/coins/images/2687/small/Zilliqa-logo.png', color: '#49c1bf', name: 'Zilliqa' },
+    DASH: { logo: 'https://assets.coingecko.com/coins/images/19/small/dash-logo.png', color: '#008ce7', name: 'Dash' },
+    '1INCH': { logo: 'https://assets.coingecko.com/coins/images/13469/small/1inch-token.png', color: '#94a6c3', name: '1inch' },
+    SUSHI: { logo: 'https://assets.coingecko.com/coins/images/12271/small/512x512_Logo_no_chop.png', color: '#fa52a0', name: 'SushiSwap' },
+    YFI: { logo: 'https://assets.coingecko.com/coins/images/11849/small/yearn.jpg', color: '#006ae3', name: 'yearn.finance' },
+    BAT: { logo: 'https://assets.coingecko.com/coins/images/677/small/basic-attention-token.png', color: '#ff4724', name: 'Basic Attention Token' },
+    PEOPLE: { logo: 'https://assets.coingecko.com/coins/images/21401/small/dao.png', color: '#ffcc00', name: 'ConstitutionDAO' },
+    LUNC: { logo: 'https://assets.coingecko.com/coins/images/8284/small/01_LusqQtw.png', color: '#ffe600', name: 'Terra Classic' },
+    GMT: { logo: 'https://assets.coingecko.com/coins/images/23597/small/gmt.png', color: '#e8d655', name: 'STEPN' },
+    CFX: { logo: 'https://assets.coingecko.com/coins/images/13079/small/3vuYMbjN.png', color: '#1d1d1d', name: 'Conflux' },
+    DYDX: { logo: 'https://assets.coingecko.com/coins/images/17500/small/hjnIm9bV.jpg', color: '#6966ff', name: 'dYdX' },
+    OCEAN: { logo: 'https://assets.coingecko.com/coins/images/3687/small/ocean-protocol-logo.jpg', color: '#000000', name: 'Ocean Protocol' },
+    SSV: { logo: 'https://assets.coingecko.com/coins/images/19155/small/ssv.png', color: '#0f4bf8', name: 'ssv.network' },
+    RPL: { logo: 'https://assets.coingecko.com/coins/images/2090/small/rocket_pool_%28RPL%29.png', color: '#ff7b47', name: 'Rocket Pool' },
+    ONDO: { logo: 'https://assets.coingecko.com/coins/images/26580/small/ONDO.png', color: '#1b3b5f', name: 'Ondo' },
+    ENA: { logo: 'https://assets.coingecko.com/coins/images/36530/small/ethena.png', color: '#000000', name: 'Ethena' },
+    W: { logo: 'https://assets.coingecko.com/coins/images/35087/small/womrhole_logo_full_color_rgb_2000px_72ppi_fb766ac85a.png', color: '#ffffff', name: 'Wormhole' },
+    PENDLE: { logo: 'https://assets.coingecko.com/coins/images/15069/small/Pendle_Logo_Normal-03.png', color: '#3058de', name: 'Pendle' },
+    FDUSD: { logo: 'https://assets.coingecko.com/coins/images/31079/small/firstdigitalusd.jpg', color: '#0c7d50', name: 'First Digital USD' },
+};
+
+// Get logo URL for a coin - uses mapping or generates fallback
+const getCoinLogo = (symbol: string): string => {
+    if (coinData[symbol]?.logo) {
+        return coinData[symbol].logo;
+    }
+    // Fallback to CryptoLogos API
+    return `https://cryptologos.cc/logos/${symbol.toLowerCase()}-${symbol.toLowerCase()}-logo.png?v=035`;
+};
+
+// Get coin display name
+const getCoinName = (symbol: string): string => {
+    return coinData[symbol]?.name || symbol;
 };
 
 // Generate mock sparkline data
@@ -72,7 +181,7 @@ function SparklineChart({ data, positive }: { data: number[]; positive: boolean 
     );
 }
 
-export default function OverviewPage() {
+export default function OverviewPage({ marketType = 'crypto' }: { marketType?: 'crypto' | 'nasdaq' }) {
     const [fearGreedData, setFearGreedData] = useState<FearGreedData | null>(null);
     const [marketData, setMarketData] = useState<MarketOverview | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -81,12 +190,32 @@ export default function OverviewPage() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const [fgData, mktData] = await Promise.all([
-                fetchFearGreedIndex(),
-                fetchMarketOverview()
-            ]);
-            setFearGreedData(fgData);
-            setMarketData(mktData);
+            if (marketType === 'nasdaq') {
+                // Fetch NASDAQ data (includes Fear & Greed)
+                const response = await fetch('http://localhost:8000/api/nasdaq-overview');
+                const nasdaqData = await response.json();
+
+                // Set market data
+                setMarketData(nasdaqData);
+
+                // Set Fear & Greed from NASDAQ response
+                if (nasdaqData.fear_greed) {
+                    setFearGreedData({
+                        value: nasdaqData.fear_greed.value,
+                        classification: nasdaqData.fear_greed.classification,
+                        timestamp: nasdaqData.fear_greed.timestamp,
+                        history: []
+                    });
+                }
+            } else {
+                // Fetch Crypto data
+                const [fgData, mktData] = await Promise.all([
+                    fetchFearGreedIndex(),
+                    fetchMarketOverview()
+                ]);
+                setFearGreedData(fgData);
+                setMarketData(mktData);
+            }
             setLastUpdate(new Date());
         } catch (error) {
             console.error('Failed to fetch overview data:', error);
@@ -99,7 +228,7 @@ export default function OverviewPage() {
         fetchData();
         const interval = setInterval(fetchData, 120000);
         return () => clearInterval(interval);
-    }, []);
+    }, [marketType]);
 
     // Derived data for trending, gainers, losers
     const { topGainers, topLosers } = useMemo(() => {
@@ -200,7 +329,7 @@ export default function OverviewPage() {
                                     <div className="w-16 h-1.5 bg-oracle-border rounded-full overflow-hidden">
                                         <div
                                             className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full transition-all"
-                                            style={{ width: marketData ? `${(100 - marketData.btc_dominance - 30)}%` : '0%' }}
+                                            style={{ width: marketData ? `${Math.min(100, (100 - marketData.btc_dominance - 30) / 30 * 100)}%` : '0%' }}
                                         />
                                     </div>
                                 </div>
@@ -276,7 +405,7 @@ export default function OverviewPage() {
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs text-gray-500">{i + 1}</span>
                                             <img
-                                                src={coinData[coin.symbol]?.logo || `https://via.placeholder.com/20`}
+                                                src={coin.logo || coinData[coin.symbol]?.logo || `https://ui-avatars.com/api/?name=${coin.symbol}&background=6b21a8&color=fff&size=40`}
                                                 alt={coin.symbol}
                                                 className="w-5 h-5 rounded-full"
                                             />
@@ -311,7 +440,7 @@ export default function OverviewPage() {
                                     <div key={coin.symbol} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <img
-                                                src={coinData[coin.symbol]?.logo || `https://via.placeholder.com/20`}
+                                                src={coin.logo || coinData[coin.symbol]?.logo || `https://ui-avatars.com/api/?name=${coin.symbol}&background=22c55e&color=fff&size=40`}
                                                 alt={coin.symbol}
                                                 className="w-5 h-5 rounded-full"
                                             />
@@ -346,7 +475,7 @@ export default function OverviewPage() {
                                     <div key={coin.symbol} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <img
-                                                src={coinData[coin.symbol]?.logo || `https://via.placeholder.com/20`}
+                                                src={coin.logo || coinData[coin.symbol]?.logo || `https://ui-avatars.com/api/?name=${coin.symbol}&background=ef4444&color=fff&size=40`}
                                                 alt={coin.symbol}
                                                 className="w-5 h-5 rounded-full"
                                             />
@@ -367,11 +496,13 @@ export default function OverviewPage() {
                     <div className="px-4 py-3 border-b border-oracle-border flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Coins className="w-5 h-5 text-cyan" />
-                            <h2 className="font-semibold text-white">Kripto Para Listesi</h2>
+                            <h2 className="font-semibold text-white">
+                                {marketType === 'nasdaq' ? 'Hisse Senedi Listesi' : 'Kripto Para Listesi'}
+                            </h2>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                             <Globe className="w-3.5 h-3.5" />
-                            <span>{marketData?.active_cryptocurrencies?.toLocaleString() || '--'} aktif kripto</span>
+                            <span>{marketData?.active_cryptocurrencies?.toLocaleString() || '--'} {marketType === 'nasdaq' ? 'aktif hisse' : 'aktif kripto'}</span>
                         </div>
                     </div>
 
@@ -427,13 +558,13 @@ export default function OverviewPage() {
                                         {/* Name + Symbol */}
                                         <div className="flex items-center gap-3">
                                             <img
-                                                src={coinData[coin.symbol]?.logo || `https://via.placeholder.com/32`}
+                                                src={coin.logo || coinData[coin.symbol]?.logo || `https://ui-avatars.com/api/?name=${coin.symbol}&background=6b21a8&color=fff&size=64`}
                                                 alt={coin.symbol}
                                                 className="w-8 h-8 rounded-full bg-oracle-border"
                                             />
                                             <div>
                                                 <p className="font-medium text-white group-hover:text-cyan transition-colors">
-                                                    {coinData[coin.symbol]?.name || coin.symbol}
+                                                    {coin.name || coinData[coin.symbol]?.name || coin.symbol}
                                                 </p>
                                                 <p className="text-xs text-gray-500">{coin.symbol}</p>
                                             </div>
@@ -506,17 +637,17 @@ export default function OverviewPage() {
                     <div className="p-4 rounded-xl bg-gradient-to-br from-oracle-card to-orange-500/10 border border-oracle-border">
                         <div className="flex items-center gap-2 mb-2">
                             <Zap className="w-4 h-4 text-orange-400" />
-                            <span className="text-xs text-gray-400">BTC Dominance</span>
+                            <span className="text-xs text-gray-400">{marketType === 'nasdaq' ? 'Technology Ağırlığı' : 'BTC Dominance'}</span>
                         </div>
                         <p className="text-xl font-bold text-white">
-                            {marketData ? `${marketData.btc_dominance.toFixed(1)}%` : '--'}
+                            {marketType === 'nasdaq' ? 'N/A' : (marketData ? `${marketData.btc_dominance.toFixed(1)}%` : '--')}
                         </p>
                     </div>
 
                     <div className="p-4 rounded-xl bg-gradient-to-br from-oracle-card to-green-500/10 border border-oracle-border">
                         <div className="flex items-center gap-2 mb-2">
                             <Coins className="w-4 h-4 text-green-400" />
-                            <span className="text-xs text-gray-400">Aktif Kripto Para</span>
+                            <span className="text-xs text-gray-400">{marketType === 'nasdaq' ? 'Aktif Hisse' : 'Aktif Kripto Para'}</span>
                         </div>
                         <p className="text-xl font-bold text-white">
                             {marketData ? marketData.active_cryptocurrencies.toLocaleString() : '--'}

@@ -21,6 +21,7 @@ from services.technical_analysis_service import get_technical_analysis
 from services.rag_service import get_rag_context, store_news_with_outcome, get_collection_stats
 from services.fear_greed_service import fetch_fear_greed_index
 from services.market_overview_service import fetch_market_overview
+from services.stock_market_service import fetch_nasdaq_overview
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TERMINAL COLORS & LOGGING
@@ -470,6 +471,17 @@ async def get_market_overview():
     """
     data = await fetch_market_overview()
     return MarketOverview(**data)
+
+
+@app.get("/api/nasdaq-overview")
+async def get_nasdaq_overview():
+    """
+    Get NASDAQ stock market overview with top stocks and Fear & Greed index.
+    
+    Includes: Top 50 NASDAQ stocks by market cap (AAPL, MSFT, GOOGL, etc.)
+    """
+    data = await fetch_nasdaq_overview()
+    return data
 
 
 if __name__ == "__main__":

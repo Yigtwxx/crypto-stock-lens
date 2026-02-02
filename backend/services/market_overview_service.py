@@ -78,8 +78,8 @@ async def _fetch_coin_metadata(client: httpx.AsyncClient) -> Dict[str, dict]:
 
 async def fetch_market_overview() -> dict:
     """
-    Fetch market overview data from Binance API with coin metadata from CoinGecko.
-    Returns coin prices, 24h changes, logos, names, and market stats.
+    Fetch market overview data from CoinGecko API (primary) with optional Binance volume data.
+    Returns coin prices, 24h changes, logos, names, market caps, and market stats.
     """
     global _market_cache
     
@@ -94,69 +94,44 @@ async def fetch_market_overview() -> dict:
     
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            # Fetch coin metadata first (with logos and names)
-            coin_metadata = await _fetch_coin_metadata(client)
+            # Fetch top coins directly from CoinGecko (includes market cap, price, etc.)
+            response = await client.get(
+                "https://api.coingecko.com/api/v3/coins/markets",
+                params={
+                    "vs_currency": "usd",
+                    "order": "market_cap_desc",
+                    "per_page": TOP_COINS_COUNT,
+                    "page": 1,
+                    "sparkline": False,
+                    "price_change_percentage": "24h"
+                },
+                timeout=15.0
+            )
             
-            # Fetch 24h ticker data for all coins at once from Binance
-            response = await client.get("https://api.binance.com/api/v3/ticker/24hr")
-            response.raise_for_status()
-            all_tickers = response.json()
-            
-            # Filter only USDT pairs and exclude unwanted tokens
-            usdt_tickers = [
-                t for t in all_tickers 
-                if t["symbol"].endswith("USDT") 
-                and not t["symbol"].endswith("DOWNUSDT")
-                and not t["symbol"].endswith("UPUSDT")
-                and not t["symbol"].startswith("TUSD")
-                and not t["symbol"].startswith("BUSD")
-                and not t["symbol"].startswith("USDC")
-                and not t["symbol"].startswith("FDUSD")
-                and not t["symbol"].startswith("BFUSD")
-                and not t["symbol"].startswith("USD1")
-                and float(t.get("quoteVolume", 0)) > 1000000  # Min $1M volume
-            ]
-            
-            # Sort by market cap (from CoinGecko metadata) descending
-            # We'll re-sort after enriching with metadata
-            
-            # Take top N coins
-            for ticker in usdt_tickers[:TOP_COINS_COUNT]:
-                symbol = ticker["symbol"]
-                price = float(ticker["lastPrice"])
-                change_24h = float(ticker["priceChangePercent"])
-                volume_24h = float(ticker["quoteVolume"])
-                high_24h = float(ticker["highPrice"])
-                low_24h = float(ticker["lowPrice"])
+            if response.status_code == 200:
+                coins = response.json()
                 
-                total_volume_24h += volume_24h
-                
-                # Clean symbol name (remove USDT)
-                coin_symbol = symbol.replace("USDT", "")
-                
-                # Get metadata from CoinGecko
-                meta = coin_metadata.get(coin_symbol, {})
-                
-                coins_data.append({
-                    "symbol": coin_symbol,
-                    "name": meta.get("name", coin_symbol),
-                    "logo": meta.get("logo", ""),
-                    "price": price,
-                    "change_24h": change_24h,
-                    "volume_24h": volume_24h,
-                    "high_24h": high_24h,
-                    "low_24h": low_24h,
-                    "market_cap": meta.get("market_cap", 0),
-                    "market_cap_rank": meta.get("market_cap_rank", 0)
-                })
+                for coin in coins:
+                    symbol = coin.get("symbol", "").upper()
+                    market_cap = coin.get("market_cap", 0) or 0
+                    volume_24h = coin.get("total_volume", 0) or 0
+                    
+                    total_volume_24h += volume_24h
+                    
+                    coins_data.append({
+                        "symbol": symbol,
+                        "name": coin.get("name", symbol),
+                        "logo": coin.get("image", ""),
+                        "price": coin.get("current_price", 0) or 0,
+                        "change_24h": coin.get("price_change_percentage_24h", 0) or 0,
+                        "volume_24h": volume_24h,
+                        "high_24h": coin.get("high_24h", 0) or 0,
+                        "low_24h": coin.get("low_24h", 0) or 0,
+                        "market_cap": market_cap,
+                        "market_cap_rank": coin.get("market_cap_rank", 0) or 0
+                    })
             
-            # Sort coins by market cap rank (from CoinGecko)
-            coins_data.sort(key=lambda x: (x.get("market_cap_rank", 999) if x.get("market_cap_rank", 0) > 0 else 999))
-            
-            # Take only top N after sorting
-            coins_data = coins_data[:TOP_COINS_COUNT]
-            
-            # Get global market data from CoinGecko (optional, may fail)
+            # Get global market data from CoinGecko
             global_data = await _fetch_global_market_data(client)
             
             result = {

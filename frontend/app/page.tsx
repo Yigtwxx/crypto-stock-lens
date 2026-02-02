@@ -7,15 +7,24 @@ import OraclePanel from '@/components/OraclePanel';
 import OverviewPage from '@/components/OverviewPage';
 import PriceAlertModal from '@/components/PriceAlertModal';
 import { usePriceAlerts } from '@/hooks/usePriceAlerts';
-import { Zap, LayoutDashboard, BarChart3 } from 'lucide-react';
+import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart } from 'lucide-react';
 
 type TabType = 'dashboard' | 'overview';
+type OverviewType = 'crypto' | 'nasdaq';
 
 export default function Dashboard() {
     const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+    const [overviewType, setOverviewType] = useState<OverviewType>('crypto');
+    const [showDropdown, setShowDropdown] = useState(false);
 
     // Initialize price alert monitoring
     usePriceAlerts();
+
+    const handleOverviewSelect = (type: OverviewType) => {
+        setOverviewType(type);
+        setActiveTab('overview');
+        setShowDropdown(false);
+    };
 
     return (
         <div className="h-screen flex flex-col overflow-hidden">
@@ -37,23 +46,63 @@ export default function Dashboard() {
                         <button
                             onClick={() => setActiveTab('dashboard')}
                             className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'dashboard'
-                                    ? 'text-cyan'
-                                    : 'text-gray-400 hover:text-white'
+                                ? 'text-cyan'
+                                : 'text-gray-400 hover:text-white'
                                 }`}
                         >
                             <LayoutDashboard className="w-4 h-4" />
                             <span>Dashboard</span>
                         </button>
-                        <button
-                            onClick={() => setActiveTab('overview')}
-                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'overview'
+
+                        {/* Overview Dropdown */}
+                        <div
+                            className="relative"
+                            onMouseEnter={() => setShowDropdown(true)}
+                            onMouseLeave={() => setShowDropdown(false)}
+                        >
+                            <button
+                                className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'overview'
                                     ? 'text-cyan'
                                     : 'text-gray-400 hover:text-white'
-                                }`}
-                        >
-                            <BarChart3 className="w-4 h-4" />
-                            <span>Overview</span>
-                        </button>
+                                    }`}
+                            >
+                                <BarChart3 className="w-4 h-4" />
+                                <span>Overview</span>
+                                <ChevronDown className={`w-3 h-3 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {showDropdown && (
+                                <div className="absolute top-full left-0 mt-1 w-48 py-2 bg-oracle-card border border-oracle-border rounded-lg shadow-xl shadow-black/50 z-50">
+                                    <button
+                                        onClick={() => handleOverviewSelect('crypto')}
+                                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${overviewType === 'crypto' && activeTab === 'overview'
+                                                ? 'bg-violet/20 text-cyan'
+                                                : 'text-gray-300 hover:bg-oracle-border/50 hover:text-white'
+                                            }`}
+                                    >
+                                        <Bitcoin className="w-4 h-4 text-orange-400" />
+                                        <span>Kripto</span>
+                                        {overviewType === 'crypto' && activeTab === 'overview' && (
+                                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan" />
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={() => handleOverviewSelect('nasdaq')}
+                                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${overviewType === 'nasdaq' && activeTab === 'overview'
+                                                ? 'bg-violet/20 text-cyan'
+                                                : 'text-gray-300 hover:bg-oracle-border/50 hover:text-white'
+                                            }`}
+                                    >
+                                        <LineChart className="w-4 h-4 text-green-400" />
+                                        <span>NASDAQ</span>
+                                        {overviewType === 'nasdaq' && activeTab === 'overview' && (
+                                            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan" />
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -81,7 +130,7 @@ export default function Dashboard() {
                 </main>
             ) : (
                 <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">
-                    <OverviewPage />
+                    <OverviewPage marketType={overviewType} />
                 </main>
             )}
 

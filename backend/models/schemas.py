@@ -63,11 +63,15 @@ class FearGreedData(BaseModel):
 class CoinData(BaseModel):
     """Schema for individual coin data."""
     symbol: str
+    name: str = ""
+    logo: str = ""
     price: float
     change_24h: float
     volume_24h: float
     high_24h: float
     low_24h: float
+    market_cap: float = 0
+    market_cap_rank: int = 0
 
 
 class MarketOverview(BaseModel):
@@ -76,5 +80,6 @@ class MarketOverview(BaseModel):
     total_volume_24h: float
     total_market_cap: float
     btc_dominance: float
+    eth_dominance: float = 0
     active_cryptocurrencies: int
     timestamp: str

@@ -91,11 +91,15 @@ export interface FearGreedData {
 // Market Overview types
 export interface CoinData {
     symbol: string;
+    name: string;
+    logo: string;
     price: number;
     change_24h: number;
     volume_24h: number;
     high_24h: number;
     low_24h: number;
+    market_cap: number;
+    market_cap_rank: number;
 }
 
 export interface MarketOverview {
@@ -119,6 +123,28 @@ export async function fetchMarketOverview(): Promise<MarketOverview> {
     const response = await fetch(`${API_BASE}/api/market-overview`);
     if (!response.ok) {
         throw new Error('Failed to fetch market overview');
+    }
+    return response.json();
+}
+
+export interface NasdaqOverview {
+    coins: CoinData[];  // Reusing CoinData for compatibility
+    total_volume_24h: number;
+    total_market_cap: number;
+    btc_dominance: number;  // N/A for stocks
+    active_cryptocurrencies: number;
+    fear_greed?: {
+        value: number;
+        classification: string;
+        timestamp: string;
+    };
+    timestamp: string;
+}
+
+export async function fetchNasdaqOverview(): Promise<NasdaqOverview> {
+    const response = await fetch(`${API_BASE}/api/nasdaq-overview`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch NASDAQ overview');
     }
     return response.json();
 }

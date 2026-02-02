@@ -125,6 +125,40 @@ const coinData: Record<string, { logo: string; color: string; name: string }> = 
     FDUSD: { logo: 'https://assets.coingecko.com/coins/images/31079/small/firstdigitalusd.jpg', color: '#0c7d50', name: 'First Digital USD' },
 };
 
+// NASDAQ Stock data with logos from financial modeling prep
+const stockData: Record<string, { logo: string; color: string; name: string }> = {
+    AAPL: { logo: 'https://financialmodelingprep.com/image-stock/AAPL.png', color: '#555555', name: 'Apple Inc.' },
+    MSFT: { logo: 'https://financialmodelingprep.com/image-stock/MSFT.png', color: '#00a4ef', name: 'Microsoft Corporation' },
+    GOOGL: { logo: 'https://financialmodelingprep.com/image-stock/GOOGL.png', color: '#4285f4', name: 'Alphabet Inc.' },
+    AMZN: { logo: 'https://financialmodelingprep.com/image-stock/AMZN.png', color: '#ff9900', name: 'Amazon.com Inc.' },
+    NVDA: { logo: 'https://financialmodelingprep.com/image-stock/NVDA.png', color: '#76b900', name: 'NVIDIA Corporation' },
+    META: { logo: 'https://financialmodelingprep.com/image-stock/META.png', color: '#0668e1', name: 'Meta Platforms Inc.' },
+    TSLA: { logo: 'https://financialmodelingprep.com/image-stock/TSLA.png', color: '#cc0000', name: 'Tesla Inc.' },
+    AVGO: { logo: 'https://financialmodelingprep.com/image-stock/AVGO.png', color: '#cc092f', name: 'Broadcom Inc.' },
+    COST: { logo: 'https://financialmodelingprep.com/image-stock/COST.png', color: '#e31837', name: 'Costco Wholesale' },
+    NFLX: { logo: 'https://financialmodelingprep.com/image-stock/NFLX.png', color: '#e50914', name: 'Netflix Inc.' },
+    AMD: { logo: 'https://financialmodelingprep.com/image-stock/AMD.png', color: '#ed1c24', name: 'Advanced Micro Devices' },
+    ADBE: { logo: 'https://financialmodelingprep.com/image-stock/ADBE.png', color: '#ff0000', name: 'Adobe Inc.' },
+    PEP: { logo: 'https://financialmodelingprep.com/image-stock/PEP.png', color: '#004b93', name: 'PepsiCo Inc.' },
+    CSCO: { logo: 'https://financialmodelingprep.com/image-stock/CSCO.png', color: '#1ba0d7', name: 'Cisco Systems' },
+    INTC: { logo: 'https://financialmodelingprep.com/image-stock/INTC.png', color: '#0071c5', name: 'Intel Corporation' },
+    CMCSA: { logo: 'https://financialmodelingprep.com/image-stock/CMCSA.png', color: '#000000', name: 'Comcast Corporation' },
+    TMUS: { logo: 'https://financialmodelingprep.com/image-stock/TMUS.png', color: '#e20074', name: 'T-Mobile US' },
+    TXN: { logo: 'https://financialmodelingprep.com/image-stock/TXN.png', color: '#c4122f', name: 'Texas Instruments' },
+    QCOM: { logo: 'https://financialmodelingprep.com/image-stock/QCOM.png', color: '#3253dc', name: 'Qualcomm Inc.' },
+    INTU: { logo: 'https://financialmodelingprep.com/image-stock/INTU.png', color: '#365ebf', name: 'Intuit Inc.' },
+    AMGN: { logo: 'https://financialmodelingprep.com/image-stock/AMGN.png', color: '#0063be', name: 'Amgen Inc.' },
+    ISRG: { logo: 'https://financialmodelingprep.com/image-stock/ISRG.png', color: '#00539b', name: 'Intuitive Surgical' },
+    HON: { logo: 'https://financialmodelingprep.com/image-stock/HON.png', color: '#d32f2f', name: 'Honeywell International' },
+    AMAT: { logo: 'https://financialmodelingprep.com/image-stock/AMAT.png', color: '#00539b', name: 'Applied Materials' },
+    BKNG: { logo: 'https://financialmodelingprep.com/image-stock/BKNG.png', color: '#003580', name: 'Booking Holdings' },
+    SBUX: { logo: 'https://financialmodelingprep.com/image-stock/SBUX.png', color: '#00704a', name: 'Starbucks Corporation' },
+    GILD: { logo: 'https://financialmodelingprep.com/image-stock/GILD.png', color: '#0c2340', name: 'Gilead Sciences' },
+    ADP: { logo: 'https://financialmodelingprep.com/image-stock/ADP.png', color: '#d0021b', name: 'Automatic Data Processing' },
+    VRTX: { logo: 'https://financialmodelingprep.com/image-stock/VRTX.png', color: '#000099', name: 'Vertex Pharmaceuticals' },
+    PYPL: { logo: 'https://financialmodelingprep.com/image-stock/PYPL.png', color: '#003087', name: 'PayPal Holdings' },
+};
+
 // Get logo URL for a coin - uses mapping or generates fallback
 const getCoinLogo = (symbol: string): string => {
     if (coinData[symbol]?.logo) {
@@ -132,6 +166,39 @@ const getCoinLogo = (symbol: string): string => {
     }
     // Fallback to CryptoLogos API
     return `https://cryptologos.cc/logos/${symbol.toLowerCase()}-${symbol.toLowerCase()}-logo.png?v=035`;
+};
+
+// Get logo URL for a stock - uses mapping or generates fallback with company initials
+const getStockLogo = (symbol: string): string => {
+    if (stockData[symbol]?.logo) {
+        return stockData[symbol].logo;
+    }
+    // Fallback to ui-avatars with purple background
+    return `https://ui-avatars.com/api/?name=${symbol}&background=4f46e5&color=fff&size=64&bold=true`;
+};
+
+// Get the appropriate logo for any asset type
+const getAssetLogo = (symbol: string, providedLogo?: string, marketType: 'crypto' | 'nasdaq' = 'crypto'): string => {
+    // First priority: use the logo provided by the API if it exists
+    if (providedLogo) {
+        return providedLogo;
+    }
+    // Second priority: use local mappings based on market type
+    if (marketType === 'nasdaq') {
+        return getStockLogo(symbol);
+    }
+    return getCoinLogo(symbol);
+};
+
+// Get asset name
+const getAssetName = (symbol: string, providedName?: string, marketType: 'crypto' | 'nasdaq' = 'crypto'): string => {
+    if (providedName) {
+        return providedName;
+    }
+    if (marketType === 'nasdaq' && stockData[symbol]?.name) {
+        return stockData[symbol].name;
+    }
+    return coinData[symbol]?.name || symbol;
 };
 
 // Get coin display name
@@ -255,6 +322,7 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
     };
 
     const formatVolume = (num: number) => {
+        if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
         if (num >= 1e9) return `$${(num / 1e9).toFixed(1)}B`;
         if (num >= 1e6) return `$${(num / 1e6).toFixed(1)}M`;
         return `$${num.toLocaleString()}`;
@@ -299,41 +367,46 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                                 </span>
                             </div>
 
-                            <div className="w-px h-4 bg-oracle-border" />
+                            {/* BTC & ETH Dominance - Only show for crypto */}
+                            {marketType === 'crypto' && (
+                                <>
+                                    <div className="w-px h-4 bg-oracle-border" />
 
-                            {/* BTC Dominance */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-gray-400">BTC:</span>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="font-semibold text-orange-400">
-                                        {marketData ? `${marketData.btc_dominance.toFixed(1)}%` : '--'}
-                                    </span>
-                                    <div className="w-16 h-1.5 bg-oracle-border rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full transition-all"
-                                            style={{ width: marketData ? `${marketData.btc_dominance}%` : '0%' }}
-                                        />
+                                    {/* BTC Dominance */}
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-gray-400">BTC:</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="font-semibold text-orange-400">
+                                                {marketData ? `${marketData.btc_dominance.toFixed(1)}%` : '--'}
+                                            </span>
+                                            <div className="w-16 h-1.5 bg-oracle-border rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full transition-all"
+                                                    style={{ width: marketData ? `${marketData.btc_dominance}%` : '0%' }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
 
-                            <div className="w-px h-4 bg-oracle-border" />
+                                    <div className="w-px h-4 bg-oracle-border" />
 
-                            {/* ETH Dominance */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-gray-400">ETH:</span>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="font-semibold text-indigo-400">
-                                        {marketData ? `${(100 - marketData.btc_dominance - 30).toFixed(1)}%` : '--'}
-                                    </span>
-                                    <div className="w-16 h-1.5 bg-oracle-border rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full transition-all"
-                                            style={{ width: marketData ? `${Math.min(100, (100 - marketData.btc_dominance - 30) / 30 * 100)}%` : '0%' }}
-                                        />
+                                    {/* ETH Dominance */}
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-gray-400">ETH:</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="font-semibold text-indigo-400">
+                                                {marketData?.eth_dominance ? `${marketData.eth_dominance.toFixed(1)}%` : '--'}
+                                            </span>
+                                            <div className="w-16 h-1.5 bg-oracle-border rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full transition-all"
+                                                    style={{ width: marketData?.eth_dominance ? `${(marketData.eth_dominance / 20) * 100}%` : '0%' }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
+                                </>
+                            )}
 
                             <div className="w-px h-4 bg-oracle-border" />
 
@@ -405,9 +478,10 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs text-gray-500">{i + 1}</span>
                                             <img
-                                                src={coin.logo || coinData[coin.symbol]?.logo || `https://ui-avatars.com/api/?name=${coin.symbol}&background=6b21a8&color=fff&size=40`}
+                                                src={getAssetLogo(coin.symbol, coin.logo, marketType)}
                                                 alt={coin.symbol}
-                                                className="w-5 h-5 rounded-full"
+                                                className="w-5 h-5 rounded-full object-cover bg-oracle-border"
+                                                onError={(e) => { e.currentTarget.src = `https://ui-avatars.com/api/?name=${coin.symbol}&background=6b21a8&color=fff&size=40&bold=true`; }}
                                             />
                                             <span className="text-sm text-white">{coin.symbol}</span>
                                         </div>
@@ -440,9 +514,10 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                                     <div key={coin.symbol} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <img
-                                                src={coin.logo || coinData[coin.symbol]?.logo || `https://ui-avatars.com/api/?name=${coin.symbol}&background=22c55e&color=fff&size=40`}
+                                                src={getAssetLogo(coin.symbol, coin.logo, marketType)}
                                                 alt={coin.symbol}
-                                                className="w-5 h-5 rounded-full"
+                                                className="w-5 h-5 rounded-full object-cover bg-oracle-border"
+                                                onError={(e) => { e.currentTarget.src = `https://ui-avatars.com/api/?name=${coin.symbol}&background=22c55e&color=fff&size=40&bold=true`; }}
                                             />
                                             <span className="text-sm text-white">{coin.symbol}</span>
                                         </div>
@@ -475,9 +550,10 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                                     <div key={coin.symbol} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <img
-                                                src={coin.logo || coinData[coin.symbol]?.logo || `https://ui-avatars.com/api/?name=${coin.symbol}&background=ef4444&color=fff&size=40`}
+                                                src={getAssetLogo(coin.symbol, coin.logo, marketType)}
                                                 alt={coin.symbol}
-                                                className="w-5 h-5 rounded-full"
+                                                className="w-5 h-5 rounded-full object-cover bg-oracle-border"
+                                                onError={(e) => { e.currentTarget.src = `https://ui-avatars.com/api/?name=${coin.symbol}&background=ef4444&color=fff&size=40&bold=true`; }}
                                             />
                                             <span className="text-sm text-white">{coin.symbol}</span>
                                         </div>
@@ -558,13 +634,14 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                                         {/* Name + Symbol */}
                                         <div className="flex items-center gap-3">
                                             <img
-                                                src={coin.logo || coinData[coin.symbol]?.logo || `https://ui-avatars.com/api/?name=${coin.symbol}&background=6b21a8&color=fff&size=64`}
+                                                src={getAssetLogo(coin.symbol, coin.logo, marketType)}
                                                 alt={coin.symbol}
-                                                className="w-8 h-8 rounded-full bg-oracle-border"
+                                                className="w-8 h-8 rounded-full object-cover bg-oracle-border"
+                                                onError={(e) => { e.currentTarget.src = `https://ui-avatars.com/api/?name=${coin.symbol}&background=4f46e5&color=fff&size=64&bold=true`; }}
                                             />
                                             <div>
                                                 <p className="font-medium text-white group-hover:text-cyan transition-colors">
-                                                    {coin.name || coinData[coin.symbol]?.name || coin.symbol}
+                                                    {getAssetName(coin.symbol, coin.name, marketType)}
                                                 </p>
                                                 <p className="text-xs text-gray-500">{coin.symbol}</p>
                                             </div>
@@ -592,7 +669,7 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
 
                                         {/* Market Cap */}
                                         <div className="flex items-center justify-end text-sm text-gray-300">
-                                            {formatVolume(coin.volume_24h * 100)}
+                                            {formatVolume(coin.market_cap)}
                                         </div>
 
                                         {/* Volume */}

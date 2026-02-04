@@ -234,17 +234,18 @@ STOCK_SYMBOLS = {
     "CSCO": "NASDAQ:CSCO", "CISCO": "NASDAQ:CSCO",
     "ADBE": "NASDAQ:ADBE", "ADOBE": "NASDAQ:ADBE",
     
-    # Finance
-    "JPM": "NYSE:JPM", "JPMORGAN": "NYSE:JPM", "JP MORGAN": "NYSE:JPM",
+    # Finance - Full names for proper matching
+    "JPM": "NYSE:JPM", "JPMORGAN": "NYSE:JPM", "JP MORGAN": "NYSE:JPM", "JPMORGAN CHASE": "NYSE:JPM",
     "BAC": "NYSE:BAC", "BANK OF AMERICA": "NYSE:BAC",
     "GS": "NYSE:GS", "GOLDMAN": "NYSE:GS", "GOLDMAN SACHS": "NYSE:GS",
     "MS": "NYSE:MS", "MORGAN STANLEY": "NYSE:MS",
     "WFC": "NYSE:WFC", "WELLS FARGO": "NYSE:WFC",
-    "C": "NYSE:C", "CITIGROUP": "NYSE:C", "CITI": "NYSE:C",
-    "V": "NYSE:V", "VISA": "NYSE:V",
-    "MA": "NYSE:MA", "MASTERCARD": "NYSE:MA",
-    "AXP": "NYSE:AXP", "AMERICAN EXPRESS": "NYSE:AXP",
+    "C": "NYSE:C", "CITIGROUP": "NYSE:C", "CITI": "NYSE:C", "CITIBANK": "NYSE:C",
+    "V": "NYSE:V", "VISA": "NYSE:V", "VISA INC": "NYSE:V",
+    "MA": "NYSE:MA", "MASTERCARD": "NYSE:MA", "MASTERCARD INC": "NYSE:MA", "MASTER CARD": "NYSE:MA",
+    "AXP": "NYSE:AXP", "AMERICAN EXPRESS": "NYSE:AXP", "AMEX": "NYSE:AXP",
     "BLK": "NYSE:BLK", "BLACKROCK": "NYSE:BLK",
+    "PYPL": "NASDAQ:PYPL", "PAYPAL": "NASDAQ:PYPL",
     
     # Industrial
     "CAT": "NYSE:CAT", "CATERPILLAR": "NYSE:CAT",
@@ -256,8 +257,8 @@ STOCK_SYMBOLS = {
     "DE": "NYSE:DE", "DEERE": "NYSE:DE", "JOHN DEERE": "NYSE:DE",
     
     # Airlines & Transport
-    "LUV": "NYSE:LUV", "SOUTHWEST": "NYSE:LUV",
-    "DAL": "NYSE:DAL", "DELTA": "NYSE:DAL",
+    "LUV": "NYSE:LUV", "SOUTHWEST": "NYSE:LUV", "SOUTHWEST AIRLINES": "NYSE:LUV",
+    "DAL": "NYSE:DAL", "DELTA": "NYSE:DAL", "DELTA AIRLINES": "NYSE:DAL",
     "UAL": "NASDAQ:UAL", "UNITED AIRLINES": "NASDAQ:UAL",
     "AAL": "NASDAQ:AAL", "AMERICAN AIRLINES": "NASDAQ:AAL",
     
@@ -308,19 +309,33 @@ STOCK_SYMBOLS = {
     "TSM": "NYSE:TSM", "TAIWAN SEMICONDUCTOR": "NYSE:TSM", "TSMC": "NYSE:TSM",
 }
 
+# Pre-computed sorted lists for efficient matching
+# Company names (4+ chars) sorted by length (longest first) for priority matching
+STOCK_COMPANY_NAMES = sorted(
+    [(k, v) for k, v in STOCK_SYMBOLS.items() if len(k) >= 4 and not k.isupper()],
+    key=lambda x: len(x[0]),
+    reverse=True
+)
+
+# Short ticker symbols (all caps, 1-4 chars) - need word boundary checking
+STOCK_SHORT_TICKERS = [(k, v) for k, v in STOCK_SYMBOLS.items() if k.isupper() and len(k) <= 4]
+
+import re
 
 def detect_symbol(text: str, asset_type: str, title: str = "") -> Optional[str]:
     """
     Detect trading symbol from news text with intelligent priority-based matching.
     
     Priority:
-    1. Exact match in title (most important)
-    2. Exact match in body
-    3. Longer/more specific matches > shorter matches
+    1. Exact company name match in title (most important)
+    2. Exact company name match in body
+    3. Ticker symbol with word boundary checking
+    4. Longer/more specific matches > shorter matches
     """
     # Normalize text for matching
     title_upper = " " + title.upper() + " " if title else ""
     text_upper = " " + text.upper() + " "  # Add spaces for boundary matching
+    combined_upper = title_upper + " " + text_upper
     
     if asset_type == "crypto":
         # First, try to find matches in title (highest priority)
@@ -335,15 +350,27 @@ def detect_symbol(text: str, asset_type: str, title: str = "") -> Optional[str]:
         
         return "BINANCE:BTCUSDT"  # Default
     else:
-        # For stocks, also prioritize title matches
-        # First check title
-        for keyword, tradingview in STOCK_SYMBOLS.items():
-            if keyword in title_upper:
+        # For stocks, use improved matching with proper priority
+        
+        # Step 1: Check for company names in title first (longest names first)
+        for keyword, tradingview in STOCK_COMPANY_NAMES:
+            if keyword.upper() in title_upper:
                 return tradingview
         
-        # Then check body
-        for keyword, tradingview in STOCK_SYMBOLS.items():
-            if keyword in text_upper:
+        # Step 2: Check for company names in body (longest names first)
+        for keyword, tradingview in STOCK_COMPANY_NAMES:
+            if keyword.upper() in text_upper:
+                return tradingview
+        
+        # Step 3: Check short ticker symbols with word boundary validation
+        # Only match if ticker appears as a standalone word
+        for ticker, tradingview in STOCK_SHORT_TICKERS:
+            # Use regex for word boundary checking on short symbols
+            # This prevents "BA" from matching inside "BANK" or "MASTERCARD"
+            pattern = r'\b' + re.escape(ticker) + r'\b'
+            if re.search(pattern, title_upper):
+                return tradingview
+            if re.search(pattern, text_upper):
                 return tradingview
         
         return "AMEX:SPY"  # Default to S&P 500 ETF

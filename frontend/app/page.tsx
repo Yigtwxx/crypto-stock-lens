@@ -7,9 +7,10 @@ import OraclePanel from '@/components/OraclePanel';
 import OverviewPage from '@/components/OverviewPage';
 import PriceAlertModal from '@/components/PriceAlertModal';
 import { usePriceAlerts } from '@/hooks/usePriceAlerts';
-import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart } from 'lucide-react';
+import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart, MessageCircle } from 'lucide-react';
+import OracleChatPage from '@/components/OracleChatPage';
 
-type TabType = 'dashboard' | 'overview';
+type TabType = 'dashboard' | 'overview' | 'chat';
 type OverviewType = 'crypto' | 'nasdaq';
 
 export default function Dashboard() {
@@ -122,6 +123,18 @@ export default function Dashboard() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Chat Tab */}
+                        <button
+                            onClick={() => setActiveTab('chat')}
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'chat'
+                                ? 'text-pink'
+                                : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <MessageCircle className="w-4 h-4" />
+                            <span>Chat</span>
+                        </button>
                     </div>
                 </div>
 
@@ -146,6 +159,10 @@ export default function Dashboard() {
                     <aside className="border-l border-oracle-border overflow-hidden flex flex-col bg-oracle-dark/50">
                         <OraclePanel />
                     </aside>
+                </main>
+            ) : activeTab === 'chat' ? (
+                <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">
+                    <OracleChatPage />
                 </main>
             ) : (
                 <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">

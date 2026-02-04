@@ -22,6 +22,7 @@ from services.rag_service import get_rag_context, store_news_with_outcome, get_c
 from services.fear_greed_service import fetch_fear_greed_index
 from services.market_overview_service import fetch_market_overview
 from services.stock_market_service import fetch_nasdaq_overview
+from services.chat_service import chat_with_oracle, check_chat_available
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TERMINAL COLORS & LOGGING
@@ -482,6 +483,67 @@ async def get_nasdaq_overview():
     """
     data = await fetch_nasdaq_overview()
     return data
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ORACLE CHAT ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from pydantic import BaseModel
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    message: str
+    history: Optional[List[ChatMessage]] = None
+
+class ChatResponse(BaseModel):
+    response: str
+    thinking_time: float
+
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def oracle_chat(request: ChatRequest):
+    """
+    Chat with Oracle AI assistant.
+    
+    Provides intelligent responses about crypto, stocks, and market analysis.
+    Uses extended thinking time for quality responses.
+    """
+    log_header("ORACLE CHAT REQUEST")
+    log_step("💬", f"Message: {request.message[:100]}..." if len(request.message) > 100 else f"Message: {request.message}")
+    
+    # Convert history to dict format
+    history = None
+    if request.history:
+        history = [{"role": m.role, "content": m.content} for m in request.history]
+        log_info(f"Conversation history: {len(history)} messages")
+    
+    log_step("🤔", "Oracle is thinking (this may take a while for complex questions)...", Colors.PURPLE)
+    
+    result = await chat_with_oracle(request.message, history)
+    
+    log_success(f"Response generated in {result['thinking_time']}s")
+    log_info(f"Response length: {len(result['response'])} characters")
+    print(f"{Colors.PURPLE}{'═'*60}{Colors.END}\n")
+    
+    return ChatResponse(
+        response=result["response"],
+        thinking_time=result["thinking_time"]
+    )
+
+
+@app.get("/api/chat/status")
+async def chat_status():
+    """Check if Oracle chat is available."""
+    is_available = await check_chat_available()
+    return {
+        "available": is_available,
+        "model": "llama3.1:8b" if is_available else None,
+        "message": "Oracle hazır" if is_available else "Ollama servisi çalışmıyor"
+    }
 
 
 if __name__ == "__main__":

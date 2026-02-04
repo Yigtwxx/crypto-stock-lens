@@ -100,7 +100,7 @@ export default function Dashboard() {
                                                 }`}
                                         >
                                             <Bitcoin className="w-4 h-4 text-orange-400" />
-                                            <span>Kripto</span>
+                                            <span>Crypto</span>
                                             {overviewType === 'crypto' && activeTab === 'overview' && (
                                                 <span className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan" />
                                             )}

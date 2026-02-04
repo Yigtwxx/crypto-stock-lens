@@ -347,7 +347,7 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                         <div className="flex items-center gap-6 text-sm">
                             {/* Total Market Cap */}
                             <div className="flex items-center gap-2">
-                                <span className="text-gray-400">Piyasa Değeri:</span>
+                                <span className="text-gray-400">Market Cap:</span>
                                 <span className="font-semibold text-white">
                                     {marketData ? formatLargeNumber(marketData.total_market_cap) : '--'}
                                 </span>
@@ -586,13 +586,13 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                     {/* Table Header */}
                     <div className="grid grid-cols-[40px_1fr_120px_100px_100px_130px_130px_110px] gap-2 px-4 py-2 text-xs text-gray-400 border-b border-oracle-border bg-oracle-dark/50">
                         <div className="text-center">#</div>
-                        <div>İsim</div>
-                        <div className="text-right">Fiyat</div>
-                        <div className="text-right">24s %</div>
-                        <div className="text-right">7g %</div>
-                        <div className="text-right">Piyasa Değeri</div>
-                        <div className="text-right">Hacim (24s)</div>
-                        <div className="text-right">Son 7 Gün</div>
+                        <div>Name</div>
+                        <div className="text-right">Price</div>
+                        <div className="text-right">24h %</div>
+                        <div className="text-right">7d %</div>
+                        <div className="text-right">Market Cap</div>
+                        <div className="text-right">Volume (24h)</div>
+                        <div className="text-right">Last 7 Days</div>
                     </div>
 
                     {/* Table Body */}
@@ -695,7 +695,7 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                     <div className="p-4 rounded-xl bg-gradient-to-br from-oracle-card to-violet/10 border border-oracle-border">
                         <div className="flex items-center gap-2 mb-2">
                             <Globe className="w-4 h-4 text-violet-400" />
-                            <span className="text-xs text-gray-400">Toplam Piyasa Değeri</span>
+                            <span className="text-xs text-gray-400">Total Market Cap</span>
                         </div>
                         <p className="text-xl font-bold text-white">
                             {marketData ? formatLargeNumber(marketData.total_market_cap) : '--'}
@@ -705,7 +705,7 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                     <div className="p-4 rounded-xl bg-gradient-to-br from-oracle-card to-cyan/10 border border-oracle-border">
                         <div className="flex items-center gap-2 mb-2">
                             <BarChart2 className="w-4 h-4 text-cyan" />
-                            <span className="text-xs text-gray-400">24 Saatlik Hacim</span>
+                            <span className="text-xs text-gray-400">24h Volume</span>
                         </div>
                         <p className="text-xl font-bold text-white">
                             {marketData ? formatLargeNumber(marketData.total_volume_24h) : '--'}
@@ -715,7 +715,7 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                     <div className="p-4 rounded-xl bg-gradient-to-br from-oracle-card to-orange-500/10 border border-oracle-border">
                         <div className="flex items-center gap-2 mb-2">
                             <Zap className="w-4 h-4 text-orange-400" />
-                            <span className="text-xs text-gray-400">{marketType === 'nasdaq' ? 'Technology Ağırlığı' : 'BTC Dominance'}</span>
+                            <span className="text-xs text-gray-400">{marketType === 'nasdaq' ? 'Tech Weight' : 'BTC Dominance'}</span>
                         </div>
                         <p className="text-xl font-bold text-white">
                             {marketType === 'nasdaq' ? 'N/A' : (marketData ? `${marketData.btc_dominance.toFixed(1)}%` : '--')}

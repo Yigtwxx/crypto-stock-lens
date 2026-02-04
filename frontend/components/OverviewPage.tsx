@@ -206,17 +206,39 @@ const getCoinName = (symbol: string): string => {
     return coinData[symbol]?.name || symbol;
 };
 
-// Generate mock sparkline data
-const generateSparkline = (baseChange: number): number[] => {
+// Seeded random number generator for consistent sparkline data
+const seededRandom = (seed: number): number => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+};
+
+// Generate sparkline data with a seed (symbol hash) for consistency
+const generateSparkline = (baseChange: number, seed: string): number[] => {
     const points = 7;
     const data: number[] = [];
     let value = 100;
+    // Create a numeric seed from the string
+    let seedNum = 0;
+    for (let i = 0; i < seed.length; i++) {
+        seedNum += seed.charCodeAt(i) * (i + 1);
+    }
     for (let i = 0; i < points; i++) {
-        const change = (Math.random() - 0.5) * 10 + (baseChange / points);
+        const randomValue = seededRandom(seedNum + i * 100);
+        const change = (randomValue - 0.5) * 10 + (baseChange / points);
         value = value + change;
         data.push(Math.max(0, value));
     }
     return data;
+};
+
+// Generate seeded 7d change for consistency
+const getSeeded7dChange = (change24h: number, symbol: string): number => {
+    let seedNum = 0;
+    for (let i = 0; i < symbol.length; i++) {
+        seedNum += symbol.charCodeAt(i) * (i + 1);
+    }
+    const multiplier = 0.5 + seededRandom(seedNum * 7) * 1.5; // Range: 0.5 to 2.0
+    return change24h * multiplier;
 };
 
 // Sparkline mini chart component
@@ -619,8 +641,8 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
                             ))
                         ) : (
                             marketData?.coins.map((coin, index) => {
-                                const sparklineData = generateSparkline(coin.change_24h);
-                                const change7d = coin.change_24h * (0.5 + Math.random());
+                                const sparklineData = generateSparkline(coin.change_24h, coin.symbol);
+                                const change7d = getSeeded7dChange(coin.change_24h, coin.symbol);
 
                                 return (
                                     <div

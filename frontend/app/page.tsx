@@ -5,16 +5,17 @@ import NewsFeed from '@/components/NewsFeed';
 import ChartPanel from '@/components/ChartPanel';
 import OraclePanel from '@/components/OraclePanel';
 import OverviewPage from '@/components/OverviewPage';
+import HomePage from '@/components/HomePage';
 import PriceAlertModal from '@/components/PriceAlertModal';
 import { usePriceAlerts } from '@/hooks/usePriceAlerts';
-import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart, MessageCircle } from 'lucide-react';
+import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart, MessageCircle, Home } from 'lucide-react';
 import OracleChatPage from '@/components/OracleChatPage';
 
-type TabType = 'dashboard' | 'overview' | 'chat';
+type TabType = 'home' | 'dashboard' | 'overview' | 'chat';
 type OverviewType = 'crypto' | 'nasdaq';
 
 export default function Dashboard() {
-    const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+    const [activeTab, setActiveTab] = useState<TabType>('home');
     const [overviewType, setOverviewType] = useState<OverviewType>('crypto');
     const [showDropdown, setShowDropdown] = useState(false);
     const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -61,6 +62,18 @@ export default function Dashboard() {
                 {/* Tab Navigation - Centered */}
                 <div className="flex-1 flex justify-center">
                     <div className="flex items-center gap-6">
+                        {/* Home Tab */}
+                        <button
+                            onClick={() => setActiveTab('home')}
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'home'
+                                ? 'text-purple-400'
+                                : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <Home className="w-4 h-4" />
+                            <span>Home</span>
+                        </button>
+
                         <button
                             onClick={() => setActiveTab('dashboard')}
                             className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'dashboard'
@@ -80,7 +93,7 @@ export default function Dashboard() {
                         >
                             <button
                                 className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'overview'
-                                    ? 'text-cyan'
+                                    ? 'text-amber-400'
                                     : 'text-gray-400 hover:text-white'
                                     }`}
                             >
@@ -143,7 +156,11 @@ export default function Dashboard() {
             </header>
 
             {/* Main Content - Conditional based on active tab */}
-            {activeTab === 'dashboard' ? (
+            {activeTab === 'home' ? (
+                <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">
+                    <HomePage />
+                </main>
+            ) : activeTab === 'dashboard' ? (
                 <main className="flex-1 grid grid-cols-[22%_50%_28%] gap-0 overflow-hidden h-[calc(100vh-48px)]">
                     {/* Left Panel - The Feed (20%) */}
                     <aside className="border-r border-oracle-border overflow-hidden flex flex-col bg-oracle-dark/50">

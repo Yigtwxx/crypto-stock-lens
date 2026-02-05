@@ -8,10 +8,11 @@ import OverviewPage from '@/components/OverviewPage';
 import HomePage from '@/components/HomePage';
 import PriceAlertModal from '@/components/PriceAlertModal';
 import { usePriceAlerts } from '@/hooks/usePriceAlerts';
-import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart, MessageCircle, Home } from 'lucide-react';
+import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart, MessageCircle, Home, Layers } from 'lucide-react';
 import OracleChatPage from '@/components/OracleChatPage';
+import HeatmapPage from '@/components/HeatmapPage';
 
-type TabType = 'home' | 'dashboard' | 'overview' | 'chat';
+type TabType = 'home' | 'dashboard' | 'overview' | 'chat' | 'heatmap';
 type OverviewType = 'crypto' | 'nasdaq';
 
 export default function Dashboard() {
@@ -65,7 +66,7 @@ export default function Dashboard() {
                         {/* Home Tab */}
                         <button
                             onClick={() => setActiveTab('home')}
-                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'home'
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${activeTab === 'home'
                                 ? 'text-purple-400'
                                 : 'text-gray-400 hover:text-white'
                                 }`}
@@ -76,7 +77,7 @@ export default function Dashboard() {
 
                         <button
                             onClick={() => setActiveTab('dashboard')}
-                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'dashboard'
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${activeTab === 'dashboard'
                                 ? 'text-cyan'
                                 : 'text-gray-400 hover:text-white'
                                 }`}
@@ -92,7 +93,7 @@ export default function Dashboard() {
                             onMouseLeave={handleDropdownClose}
                         >
                             <button
-                                className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'overview'
+                                className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${activeTab === 'overview'
                                     ? 'text-yellow-400'
                                     : 'text-amber-400 hover:text-white'
                                     }`}
@@ -140,13 +141,25 @@ export default function Dashboard() {
                         {/* Chat Tab */}
                         <button
                             onClick={() => setActiveTab('chat')}
-                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-200 ${activeTab === 'chat'
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${activeTab === 'chat'
                                 ? 'text-pink'
                                 : 'text-gray-400 hover:text-white'
                                 }`}
                         >
                             <MessageCircle className="w-4 h-4" />
                             <span>Chat</span>
+                        </button>
+
+                        {/* Heatmap Tab */}
+                        <button
+                            onClick={() => setActiveTab('heatmap')}
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${activeTab === 'heatmap'
+                                ? 'text-red-400'
+                                : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <Layers className="w-4 h-4" />
+                            <span>Heatmap</span>
                         </button>
                     </div>
                 </div>
@@ -180,6 +193,10 @@ export default function Dashboard() {
             ) : activeTab === 'chat' ? (
                 <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">
                     <OracleChatPage />
+                </main>
+            ) : activeTab === 'heatmap' ? (
+                <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">
+                    <HeatmapPage />
                 </main>
             ) : (
                 <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">

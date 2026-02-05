@@ -172,6 +172,16 @@ export interface Liquidation {
     timestamp: number;
 }
 
+export interface MacroEvent {
+    title: string;
+    country: string;
+    date: string;
+    time: string;
+    impact: 'Low' | 'Medium' | 'High';
+    forecast: string;
+    previous: string;
+}
+
 export interface OnChainData {
     active_addresses: {
         btc: number;
@@ -199,6 +209,17 @@ export async function fetchFundingRates(): Promise<FundingRate[]> {
     return response.json();
 }
 
+export async function fetchMacroCalendar(): Promise<MacroEvent[]> {
+    try {
+        const response = await fetch(`${API_BASE}/api/home/macro-calendar`);
+        if (!response.ok) return [];
+        return await response.json();
+    } catch (error) {
+        console.error("Error fetching macro calendar:", error);
+        return [];
+    }
+}
+
 export async function fetchLiquidations(): Promise<Liquidation[]> {
     const response = await fetch(`${API_BASE}/api/home/liquidations`);
     if (!response.ok) throw new Error('Failed to fetch liquidations');
@@ -209,4 +230,57 @@ export async function fetchOnChainData(): Promise<OnChainData> {
     const response = await fetch(`${API_BASE}/api/home/onchain`);
     if (!response.ok) throw new Error('Failed to fetch on-chain data');
     return response.json();
+}
+
+
+// ==========================================
+// WATCHLIST
+// ==========================================
+
+export interface WatchlistItem {
+    symbol: string;
+    type: 'STOCK' | 'CRYPTO';
+    price?: number;
+    change_24h?: number;
+    logo?: string;
+    name?: string;
+}
+
+export interface Watchlist {
+    id: string;
+    name: string;
+    items: WatchlistItem[];
+}
+
+export async function fetchWatchlists(): Promise<Watchlist[]> {
+    try {
+        const res = await fetch(`${API_BASE}/api/home/watchlist`);
+        if (!res.ok) return [];
+        return await res.json();
+    } catch (error) {
+        console.error("Error fetching watchlists:", error);
+        return [];
+    }
+}
+
+export async function createWatchlist(name: string, items: { symbol: string, type: 'STOCK' | 'CRYPTO' }[]): Promise<Watchlist[]> {
+    try {
+        const res = await fetch(`${API_BASE}/api/home/watchlist`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, items })
+        });
+        if (!res.ok) throw new Error("Failed to create watchlist");
+        return await res.json();
+    } catch (error) {
+        console.error("Error creating watchlist:", error);
+        throw error;
+    }
+}
+
+export async function deleteWatchlist(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/home/watchlist/${id}`, {
+        method: "DELETE"
+    });
+    if (!res.ok) throw new Error("Failed to delete watchlist");
 }

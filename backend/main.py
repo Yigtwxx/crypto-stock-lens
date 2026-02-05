@@ -23,7 +23,7 @@ from services.fear_greed_service import fetch_fear_greed_index
 from services.market_overview_service import fetch_market_overview
 from services.stock_market_service import fetch_nasdaq_overview
 from services.chat_service import chat_with_oracle, check_chat_available
-from services.home_service import fetch_funding_rates, fetch_liquidations, fetch_onchain_data
+from services.home_service import fetch_funding_rates, fetch_liquidations, fetch_onchain_data, fetch_macro_calendar
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TERMINAL COLORS & LOGGING
@@ -487,6 +487,50 @@ async def get_nasdaq_overview():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# WATCHLIST ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from pydantic import BaseModel
+
+class WatchlistItem(BaseModel):
+    symbol: str
+    type: str # "STOCK" or "CRYPTO"
+
+class CreateWatchlistRequest(BaseModel):
+    name: str
+    items: List[WatchlistItem]
+
+@app.get("/api/home/watchlist")
+async def get_watchlists_endpoint():
+    try:
+        from services.watchlist_service import get_watchlists
+        return await get_watchlists()
+    except Exception as e:
+        print(f"Error getting watchlists: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/home/watchlist")
+async def create_watchlist_endpoint(request: CreateWatchlistRequest):
+    try:
+        from services.watchlist_service import create_watchlist
+        # Convert Pydantic models to dicts
+        items_dict = [{"symbol": item.symbol, "type": item.type} for item in request.items]
+        return await create_watchlist(request.name, items_dict)
+    except Exception as e:
+        print(f"Error creating watchlist: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/home/watchlist/{list_id}")
+async def delete_watchlist_endpoint(list_id: str):
+    try:
+        from services.watchlist_service import delete_watchlist
+        return await delete_watchlist(list_id)
+    except Exception as e:
+        print(f"Error deleting watchlist: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # HOME PAGE ENDPOINTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -504,6 +548,13 @@ async def get_liquidations():
 async def get_onchain_data():
     """Get on-chain stats (Mocked for demo)."""
     return await fetch_onchain_data()
+
+@app.get("/api/home/macro-calendar")
+async def get_macro_calendar():
+    """Get US Economic Calendar (ForexFactory)."""
+    # Local import to avoid circular dependency if needed, but usually fine at top
+    # We need to ensure it's imported at top, so let's check `home_service` import
+    return await fetch_macro_calendar()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

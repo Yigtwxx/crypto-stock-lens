@@ -23,6 +23,7 @@ from services.fear_greed_service import fetch_fear_greed_index
 from services.market_overview_service import fetch_market_overview
 from services.stock_market_service import fetch_nasdaq_overview
 from services.chat_service import chat_with_oracle, check_chat_available
+from services.home_service import fetch_funding_rates, fetch_liquidations, fetch_onchain_data
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TERMINAL COLORS & LOGGING
@@ -483,6 +484,26 @@ async def get_nasdaq_overview():
     """
     data = await fetch_nasdaq_overview()
     return data
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HOME PAGE ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/home/funding-rates")
+async def get_funding_rates():
+    """Get real-time funding rates from Binance Futures."""
+    return await fetch_funding_rates()
+
+@app.get("/api/home/liquidations")
+async def get_liquidations():
+    """Get recent large liquidations from Binance Futures."""
+    return await fetch_liquidations()
+
+@app.get("/api/home/onchain")
+async def get_onchain_data():
+    """Get on-chain stats (Mocked for demo)."""
+    return await fetch_onchain_data()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

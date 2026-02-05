@@ -149,3 +149,64 @@ export async function fetchNasdaqOverview(): Promise<NasdaqOverview> {
     }
     return response.json();
 }
+
+// ==========================================
+// HOME PAGE TYPES & API
+// ==========================================
+
+export interface FundingRate {
+    symbol: string;
+    rate: number;
+    rate_formatted: string;
+    index_price: number;
+    mark_price: number;
+    next_funding_time: number;
+}
+
+export interface Liquidation {
+    symbol: string;
+    side: 'Long' | 'Short';
+    price: number;
+    amount_usd: number;
+    time_ago: string;
+    timestamp: number;
+}
+
+export interface OnChainData {
+    active_addresses: {
+        btc: number;
+        eth: number;
+        btc_change_24h: number;
+        eth_change_24h: number;
+    };
+    transactions_24h: {
+        btc: number;
+        eth: number;
+    };
+    network_load: {
+        eth_gas_gwei: number;
+        btc_mempool_size_vbytes: number;
+    };
+    exchange_flows: {
+        btc_net_flow_usd: number;
+        eth_net_flow_usd: number;
+    };
+}
+
+export async function fetchFundingRates(): Promise<FundingRate[]> {
+    const response = await fetch(`${API_BASE}/api/home/funding-rates`);
+    if (!response.ok) throw new Error('Failed to fetch funding rates');
+    return response.json();
+}
+
+export async function fetchLiquidations(): Promise<Liquidation[]> {
+    const response = await fetch(`${API_BASE}/api/home/liquidations`);
+    if (!response.ok) throw new Error('Failed to fetch liquidations');
+    return response.json();
+}
+
+export async function fetchOnChainData(): Promise<OnChainData> {
+    const response = await fetch(`${API_BASE}/api/home/onchain`);
+    if (!response.ok) throw new Error('Failed to fetch on-chain data');
+    return response.json();
+}

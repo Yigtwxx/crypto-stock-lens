@@ -7,6 +7,7 @@ import httpx
 import random
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
+import xml.etree.ElementTree as ET
 
 # ==========================================
 # CONSTANTS & CACHE
@@ -19,10 +20,80 @@ _home_cache: Dict[str, Any] = {
     "funding": {"data": None, "timestamp": None},
     "liquidations": {"data": None, "timestamp": None},
     "onchain": {"data": None, "timestamp": None},
+    "macro": {"data": None, "timestamp": None},
 }
 
 CACHE_TTL = 60  # seconds
 
+
+# ==========================================
+# MACRO CALENDAR
+# ==========================================
+
+async def fetch_macro_calendar() -> List[Dict]:
+    """
+    Fetch US Economic Calendar from ForexFactory (XML).
+    Filters for USD events with Medium/High impact.
+    """
+    global _home_cache
+    
+    if _is_cache_valid("macro"):
+        return _home_cache["macro"]["data"]
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # ForexFactory Weekly XML Feed
+            response = await client.get("https://nfs.faireconomy.media/ff_calendar_thisweek.xml", timeout=10)
+            
+            if response.status_code != 200:
+                print(f"Failed to fetch ForexFactory calendar: {response.status_code}")
+                return []
+            
+            # Parse XML
+            root = ET.fromstring(response.content)
+            
+            events = []
+            for event in root.findall('event'):
+                country = event.find('country').text
+                
+                # Filter for USD events only (as requested)
+                if country != 'USD':
+                    continue
+                    
+                impact = event.find('impact').text
+                # Filter for Medium and High impact to reduce noise
+                if impact not in ['Medium', 'High']:
+                    continue
+                
+                title = event.find('title').text
+                date_str = event.find('date').text  # MM-DD-YYYY
+                time_str = event.find('time').text  # 1:30pm
+                
+                # Combine date/time parsing if needed, but for display raw strings might be fine
+                # or formatting them nicely.
+                
+                forecast = event.find('forecast').text or ""
+                previous = event.find('previous').text or ""
+                
+                events.append({
+                    "title": title,
+                    "country": country,
+                    "date": date_str,
+                    "time": time_str,
+                    "impact": impact,
+                    "forecast": forecast,
+                    "previous": previous
+                })
+            
+            # Since XML is this week's events, we might want to sort them or just return all
+            # They usually come sorted by date.
+            
+            _update_cache("macro", events)
+            return events
+
+    except Exception as e:
+        print(f"Error fetching macro calendar: {e}")
+        return []
 
 # ==========================================
 # FUNDING RATES

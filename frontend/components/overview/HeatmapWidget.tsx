@@ -25,7 +25,6 @@ export default function HeatmapWidget({ marketType = 'crypto', className = '' }:
                         colorTheme="dark"
                         width="100%"
                         height="100%"
-                        displayCurrency="USD"
                         locale="en"
                     />
                 ) : (

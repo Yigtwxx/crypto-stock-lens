@@ -2,11 +2,10 @@
 
 import { useState } from 'react';
 import HeatmapWidget from './overview/HeatmapWidget';
-import LiquidationChart from './overview/LiquidationChart';
-import { Bitcoin, LineChart, Droplets } from 'lucide-react';
+import { Bitcoin, LineChart } from 'lucide-react';
 
 export default function HeatmapPage() {
-    const [marketType, setMarketType] = useState<'crypto' | 'nasdaq' | 'liquidation'>('crypto');
+    const [marketType, setMarketType] = useState<'crypto' | 'nasdaq'>('crypto');
 
     return (
         <div className="h-full flex flex-col bg-oracle-darker">
@@ -18,8 +17,8 @@ export default function HeatmapPage() {
                     <button
                         onClick={() => setMarketType('crypto')}
                         className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${marketType === 'crypto'
-                            ? 'bg-indigo-500/20 text-indigo-400 shadow-sm'
-                            : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                ? 'bg-indigo-500/20 text-indigo-400 shadow-sm'
+                                : 'text-gray-400 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         <Bitcoin className="w-4 h-4" />
@@ -28,33 +27,19 @@ export default function HeatmapPage() {
                     <button
                         onClick={() => setMarketType('nasdaq')}
                         className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${marketType === 'nasdaq'
-                            ? 'bg-cyan/20 text-cyan shadow-sm'
-                            : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                ? 'bg-cyan/20 text-cyan shadow-sm'
+                                : 'text-gray-400 hover:text-white hover:bg-white/5'
                             }`}
                     >
                         <LineChart className="w-4 h-4" />
                         <span>Nasdaq</span>
-                    </button>
-                    <button
-                        onClick={() => setMarketType('liquidation')}
-                        className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${marketType === 'liquidation'
-                            ? 'bg-amber-500/20 text-amber-400 shadow-sm'
-                            : 'text-gray-400 hover:text-white hover:bg-white/5'
-                            }`}
-                    >
-                        <Droplets className="w-4 h-4" />
-                        <span>Liquidation</span>
                     </button>
                 </div>
             </div>
 
             {/* Heatmap Content */}
             <div className="flex-1 p-4 overflow-hidden">
-                {marketType === 'liquidation' ? (
-                    <LiquidationChart className="w-full h-full" />
-                ) : (
-                    <HeatmapWidget marketType={marketType} className="h-full w-full" />
-                )}
+                <HeatmapWidget marketType={marketType} className="h-full w-full" />
             </div>
         </div>
     );

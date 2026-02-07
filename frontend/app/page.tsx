@@ -8,11 +8,14 @@ import OverviewPage from '@/components/OverviewPage';
 import HomePage from '@/components/HomePage';
 import PriceAlertModal from '@/components/PriceAlertModal';
 import { usePriceAlerts } from '@/hooks/usePriceAlerts';
-import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart, MessageCircle, Home, Layers } from 'lucide-react';
+import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart, MessageCircle, Home, Layers, User, BrainCircuit } from 'lucide-react';
 import OracleChatPage from '@/components/OracleChatPage';
 import HeatmapPage from '@/components/HeatmapPage';
+import ProfilePage from '@/components/ProfilePage';
+import AnalysisPage from '@/components/AnalysisPage';
+import GlobalTicker from '@/components/GlobalTicker';
 
-type TabType = 'home' | 'dashboard' | 'overview' | 'chat' | 'heatmap';
+type TabType = 'home' | 'dashboard' | 'overview' | 'analysis' | 'chat' | 'heatmap' | 'profile';
 type OverviewType = 'crypto' | 'nasdaq';
 
 export default function Dashboard() {
@@ -138,6 +141,18 @@ export default function Dashboard() {
                             )}
                         </div>
 
+                        {/* Analysis Tab */}
+                        <button
+                            onClick={() => setActiveTab('analysis')}
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${activeTab === 'analysis'
+                                ? 'text-blue-400'
+                                : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <BrainCircuit className="w-4 h-4" />
+                            <span>Analysis</span>
+                        </button>
+
                         {/* Chat Tab */}
                         <button
                             onClick={() => setActiveTab('chat')}
@@ -161,6 +176,18 @@ export default function Dashboard() {
                             <Layers className="w-4 h-4" />
                             <span>Heatmap</span>
                         </button>
+
+                        {/* Profile Tab */}
+                        <button
+                            onClick={() => setActiveTab('profile')}
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${activeTab === 'profile'
+                                ? 'text-teal'
+                                : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <User className="w-4 h-4" />
+                            <span>Profile</span>
+                        </button>
                     </div>
                 </div>
 
@@ -168,13 +195,16 @@ export default function Dashboard() {
                 <span className="text-xs text-gray-500 hidden sm:inline">Financial Intelligence Terminal</span>
             </header>
 
+            {/* Global Ticker Tape - Visible on all pages */}
+            <GlobalTicker />
+
             {/* Main Content - Conditional based on active tab */}
             {activeTab === 'home' ? (
-                <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">
+                <main className="flex-1 overflow-hidden h-[calc(100vh-80px)]"> {/* Adjusted height for ticker */}
                     <HomePage />
                 </main>
             ) : activeTab === 'dashboard' ? (
-                <main className="flex-1 grid grid-cols-[22%_50%_28%] gap-0 overflow-hidden h-[calc(100vh-48px)]">
+                <main className="flex-1 grid grid-cols-[22%_50%_28%] gap-0 overflow-hidden h-[calc(100vh-80px)]">
                     {/* Left Panel - The Feed (20%) */}
                     <aside className="border-r border-oracle-border overflow-hidden flex flex-col bg-oracle-dark/50">
                         <NewsFeed />
@@ -190,16 +220,24 @@ export default function Dashboard() {
                         <OraclePanel />
                     </aside>
                 </main>
+            ) : activeTab === 'analysis' ? (
+                <main className="flex-1 overflow-hidden h-[calc(100vh-80px)]">
+                    <AnalysisPage />
+                </main>
             ) : activeTab === 'chat' ? (
-                <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">
+                <main className="flex-1 overflow-hidden h-[calc(100vh-80px)]">
                     <OracleChatPage />
                 </main>
             ) : activeTab === 'heatmap' ? (
-                <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">
+                <main className="flex-1 overflow-hidden h-[calc(100vh-80px)]">
                     <HeatmapPage />
                 </main>
+            ) : activeTab === 'profile' ? (
+                <main className="flex-1 overflow-hidden h-[calc(100vh-80px)]">
+                    <ProfilePage />
+                </main>
             ) : (
-                <main className="flex-1 overflow-hidden h-[calc(100vh-48px)]">
+                <main className="flex-1 overflow-hidden h-[calc(100vh-80px)]">
                     <OverviewPage marketType={overviewType} />
                 </main>
             )}

@@ -24,6 +24,7 @@ from services.market_overview_service import fetch_market_overview
 from services.stock_market_service import fetch_nasdaq_overview
 from services.chat_service import chat_with_oracle, check_chat_available
 from services.home_service import fetch_funding_rates, fetch_liquidations, fetch_onchain_data, fetch_macro_calendar
+from services.liquidation_service import liquidation_service
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TERMINAL COLORS & LOGGING
@@ -73,6 +74,16 @@ app = FastAPI(
     description="Financial Intelligence Terminal Backend",
     version="1.0.0"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background services."""
+    await liquidation_service.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop background services."""
+    await liquidation_service.stop()
 
 # CORS middleware for Next.js frontend
 app.add_middleware(
@@ -486,6 +497,33 @@ async def get_nasdaq_overview():
     return data
 
 
+@app.get("/api/liquidations/heatmap")
+async def get_liquidation_heatmap():
+    """
+    Get live liquidation heatmap data.
+    Aggregated from real-time Binance WebSocket stream.
+    """
+    return await liquidation_service.get_heatmap_data()
+
+
+@app.get("/api/liquidations/history/{symbol}")
+async def get_liquidation_history(symbol: str):
+    """
+    Get all stored liquidation history for a specific symbol.
+    Start building your heat profile from this data.
+    """
+    return await liquidation_service.get_liquidation_history(symbol)
+
+
+@app.get("/api/market/candles/{symbol}")
+async def get_market_candles(symbol: str, interval: str = "1h"):
+    """
+    Get OHLCV candles for chart backfilling.
+    Default: 1h interval, 1 week limit.
+    """
+    return await liquidation_service.fetch_candles(symbol, interval)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # WATCHLIST ENDPOINTS
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -538,6 +576,64 @@ async def delete_watchlist_endpoint(list_id: str):
 async def get_funding_rates():
     """Get real-time funding rates from Binance Futures."""
     return await fetch_funding_rates()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ANALYSIS & NOTES ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class NoteRequest(BaseModel):
+    title: str
+    content: str
+
+@app.get("/api/analysis/report/{timeframe}")
+async def get_analysis_report(timeframe: str):
+    """Get AI generated market report (daily, weekly, monthly)."""
+    try:
+        from services.analysis_service import get_report
+        if timeframe not in ['daily', 'weekly', 'monthly']:
+            raise HTTPException(status_code=400, detail="Invalid timeframe")
+        return await get_report(timeframe)
+    except Exception as e:
+        print(f"Error getting report: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/analysis/generate/{timeframe}")
+async def generate_analysis_report(timeframe: str):
+    """Force regenerate a market report."""
+    try:
+        from services.analysis_service import generate_market_report
+        content = await generate_market_report(timeframe)
+        return {"content": content, "timestamp": datetime.now().isoformat()}
+    except Exception as e:
+        print(f"Error generating report: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/analysis/notes")
+async def get_notes():
+    """Get all user notes."""
+    try:
+        from services.analysis_service import get_user_notes
+        return await get_user_notes()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/analysis/notes")
+async def create_note(request: NoteRequest):
+    """Create a new user note."""
+    try:
+        from services.analysis_service import add_user_note
+        return await add_user_note(request.title, request.content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/analysis/notes/{note_id}")
+async def delete_note(note_id: str):
+    """Delete a user note."""
+    try:
+        from services.analysis_service import delete_user_note
+        return await delete_user_note(note_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/home/liquidations")
 async def get_liquidations():

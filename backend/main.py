@@ -25,6 +25,7 @@ from services.stock_market_service import fetch_nasdaq_overview
 from services.chat_service import chat_with_oracle, check_chat_available
 from services.home_service import fetch_funding_rates, fetch_liquidations, fetch_onchain_data, fetch_macro_calendar
 from services.liquidation_service import liquidation_service
+from services.onchain_service import fetch_whale_trades
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TERMINAL COLORS & LOGGING
@@ -644,6 +645,11 @@ async def get_liquidations():
 async def get_onchain_data():
     """Get on-chain stats (Mocked for demo)."""
     return await fetch_onchain_data()
+
+@app.get("/api/onchain/whales")
+async def get_whale_trades():
+    """Get on-chain whale trade activity from Binance."""
+    return await fetch_whale_trades()
 
 @app.get("/api/home/macro-calendar")
 async def get_macro_calendar():

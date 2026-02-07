@@ -149,47 +149,56 @@ MARKET_CAP_ESTIMATES = {
 
 async def fetch_single_stock(client: httpx.AsyncClient, symbol: str) -> Optional[dict]:
     """
-    Fetch single stock data from Yahoo Finance chart API.
+    Fetch single stock data from Yahoo Finance quote API.
+    Returns real-time price, change, volume and market cap.
     """
     try:
-        url = f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=1d"
+        # Use v7 quote API which provides marketCap directly
+        url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
         response = await client.get(
             url,
             headers={
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                "Accept": "application/json"
             }
         )
         
         if response.status_code == 200:
             data = response.json()
-            result = data.get("chart", {}).get("result", [])
-            if result:
-                meta = result[0].get("meta", {})
+            quote_response = data.get("quoteResponse", {})
+            results = quote_response.get("result", [])
+            
+            if results:
+                quote = results[0]
                 
-                price = meta.get("regularMarketPrice", 0) or 0
-                prev_close = meta.get("previousClose", meta.get("chartPreviousClose", price)) or price
-                change = ((price - prev_close) / prev_close * 100) if prev_close > 0 else 0
-                volume = meta.get("regularMarketVolume", 0) or 0
-                high = meta.get("regularMarketDayHigh", 0) or 0
-                low = meta.get("regularMarketDayLow", 0) or 0
+                price = quote.get("regularMarketPrice", 0) or 0
+                change = quote.get("regularMarketChangePercent", 0) or 0
+                volume = quote.get("regularMarketVolume", 0) or 0
+                high = quote.get("regularMarketDayHigh", 0) or 0
+                low = quote.get("regularMarketDayLow", 0) or 0
+                market_cap = quote.get("marketCap", 0) or 0
                 
-                stock_meta = STOCK_METADATA.get(symbol, {"name": symbol, "sector": "Other"})
+                # 7-day price history (simplified - just current and previous close for calculation)
+                prev_close = quote.get("regularMarketPreviousClose", price)
+                fifty_two_week_high = quote.get("fiftyTwoWeekHigh", high)
+                fifty_two_week_low = quote.get("fiftyTwoWeekLow", low)
                 
-                # Use estimated market cap for sorting
-                est_market_cap = MARKET_CAP_ESTIMATES.get(symbol, 50) * 1e9
+                stock_meta = STOCK_METADATA.get(symbol, {"name": quote.get("shortName", symbol), "sector": "Other"})
                 
                 return {
                     "symbol": symbol,
                     "name": stock_meta["name"],
                     "sector": stock_meta.get("sector", "Other"),
-                    "logo": STOCK_LOGOS.get(symbol, ""),
+                    "logo": STOCK_LOGOS.get(symbol, get_stock_logo(symbol)),
                     "price": float(price),
                     "change_24h": float(change),
                     "volume_24h": float(volume * price) if price else 0,
                     "high_24h": float(high),
                     "low_24h": float(low),
-                    "market_cap": float(est_market_cap),
-                    "market_cap_rank": 0
+                    "market_cap": float(market_cap),
+                    "market_cap_rank": 0,
+                    "fifty_two_week_high": float(fifty_two_week_high),
+                    "fifty_two_week_low": float(fifty_two_week_low)
                 }
     except Exception as e:
         print(f"Error fetching {symbol}: {e}")
@@ -338,3 +347,47 @@ async def fetch_stock_fear_greed(client: Optional[httpx.AsyncClient] = None) -> 
         "classification": "Neutral",
         "timestamp": datetime.now().isoformat()
     }
+
+
+# Global Indices Configuration
+GLOBAL_INDICES = {
+    "^GSPC": {"name": "S&P 500", "region": "US"},
+    "^IXIC": {"name": "NASDAQ", "region": "US"},
+    "^DJI": {"name": "Dow Jones", "region": "US"},
+    "^FTSE": {"name": "FTSE 100", "region": "UK"},
+    "^GDAXI": {"name": "DAX", "region": "DE"},
+    "^N225": {"name": "Nikkei 225", "region": "JP"},
+    "^HSI": {"name": "Hang Seng", "region": "HK"},
+    "^FCHI": {"name": "CAC 40", "region": "FR"},
+}
+
+async def fetch_global_indices() -> list:
+    """
+    Fetch global market indices data.
+    """
+    indices_data = []
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            tasks = [fetch_single_stock(client, symbol) for symbol in GLOBAL_INDICES.keys()]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for result in results:
+                if isinstance(result, dict):
+                    symbol = result["symbol"]
+                    meta = GLOBAL_INDICES.get(symbol, {})
+                    result["name"] = meta.get("name", result["name"])
+                    result["region"] = meta.get("region", "Global")
+                    indices_data.append(result)
+                    
+    except Exception as e:
+        print(f"Error fetching global indices: {e}")
+        
+    # Sort by region/importance (custom order based on dict keys)
+    ordered_data = []
+    for symbol in GLOBAL_INDICES.keys():
+        item = next((i for i in indices_data if i["symbol"] == symbol), None)
+        if item:
+            ordered_data.append(item)
+            
+    return ordered_data

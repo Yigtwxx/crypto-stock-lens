@@ -65,41 +65,112 @@ async def chat_with_oracle(
 ) -> Dict:
     """
     Send a message to Oracle and get a response.
-    
-    Args:
-        message: User's question
-        history: Previous conversation history [{role: "user"|"assistant", content: "..."}]
-    
-    Returns:
-        {response: string, thinking_time: float}
+    Injects real-time market data AND specific technical analysis.
     """
-    # Build conversation context
+    from services.market_overview_service import fetch_market_overview
+    from services.news_service import fetch_all_news
+    from services.fear_greed_service import fetch_fear_greed_index
+    from services.technical_analysis_service import get_technical_analysis
+    import re
+
+    # 1. Fetch General Market Context
+    try:
+        overview = await fetch_market_overview()
+        fg_data = await fetch_fear_greed_index()
+        news = await fetch_all_news()
+        
+        # Format Market Data
+        market_context = "📉 **GENEL PİYASA GÖRÜNÜMÜ:**\n"
+        market_context += f"📅 Tarih: {datetime.now().strftime('%d %B %Y, %H:%M')}\n"
+        market_context += f"• Toplam Piyasa Değeri: ${overview['total_market_cap']:,.0f}\n"
+        market_context += f"• BTC Dominansı: %{overview['btc_dominance']:.1f}\n"
+        market_context += f"• Korku & Açgözlülük: {fg_data['value']} ({fg_data['value_classification']})\n"
+
+        # Format News Headlines (Top 3)
+        market_context += "\n📰 **SON HABERLER:**\n"
+        for item in news[:3]:
+            # Add time ago
+            market_context += f"- {item.title} ({item.source})\n"
+        
+    except Exception as e:
+        print(f"Error fetching general context: {e}")
+        market_context = "⚠️ Genel piyasa verileri alınamadı."
+
+    # 2. Detect Specific Symbol & Fetch Technicals
+    # Regex to find potential tickers (e.g., BTC, ETH, SOL, AVAX) - 2 to 5 uppercase letters
+    potential_symbols = re.findall(r'\b[A-Z]{2,5}\b', message.upper())
+    
+    # Common words to ignore
+    ignored_words = {"THE", "AND", "FOR", "ARE", "BUY", "SELL", "HOW", "WHAT", "WHY", "USD", "USDT"}
+    detected_symbol = None
+    technical_context = ""
+    
+    for word in potential_symbols:
+        if word in ignored_words: continue
+        
+        # Try to fetch technicals to validate if it's a crypto
+        # We try adding USDT to it
+        tech_data = await get_technical_analysis(f"BINANCE:{word}USDT")
+        
+        if tech_data and "current_price" in tech_data and tech_data["current_price"] > 0:
+            detected_symbol = word
+            
+            # Format Technical Data
+            technical_context = f"\n📊 **{word} İÇİN TEKNİK ANALİZ (CANLI):**\n"
+            technical_context += f"• Fiyat: ${tech_data.get('current_price'):,.4f}\n"
+            technical_context += f"• RSI (14): {tech_data.get('rsi_value'):.1f} ({tech_data.get('rsi_signal')})\n"
+            technical_context += f"• Trend: {tech_data.get('trend').upper()}\n"
+            technical_context += f"• Destek Seviyeleri: {', '.join(tech_data.get('support_levels', []))}\n"
+            technical_context += f"• Direnç Seviyeleri: {', '.join(tech_data.get('resistance_levels', []))}\n"
+            technical_context += f"• Hedef Fiyat: {tech_data.get('target_price')}\n"
+            
+            # Add specific prompt instruction
+            market_context += technical_context
+            break # Focus on the first valid symbol found
+            
+    # 3. Build Conversation Context
     messages = []
     
-    # Add history if provided
     if history:
-        for msg in history[-6:]:  # Keep last 6 messages for context
+        for msg in history[-6:]:
             messages.append({
                 "role": msg.get("role", "user"),
                 "content": msg.get("content", "")
             })
     
-    # Add current message
-    messages.append({
-        "role": "user",
-        "content": message
-    })
-    
-    # Build the full prompt with conversation context
+    # 4. Construct Advanced System Prompt
+    final_system_prompt = f"""{CHAT_SYSTEM_PROMPT}
+
+🔍 **CANLI VERİ KAYNAĞI:**
+Aşağıdaki veriler şu anda sistemden çekilmiştir. Yanıtında KESİNLİKLE bu verileri kullan.
+{market_context}
+
+🧠 **DÜŞÜNME SÜRECİ (CHAIN OF THOUGHT):**
+Yanıt vermeden önce adım adım düşün:
+1. Kullanıcı ne soruyor? (Genel piyasa mı, özel bir coin mi?)
+2. Elimdeki CANLI veriler bu soruyu yanıtlamak için yeterli mi?
+3. Eğer teknik analiz verisi varsa (RSI, Destek/Direnç), bunları yorumla. "RSI 70 üzeri, yani aşırı alım var" gibi.
+4. Haberler piyasayı nasıl etkiliyor?
+5. Sonuç olarak net bir strateji veya yanıt oluştur.
+
+⚠️ **ÖNEMLİ:**
+- Asla "bilgim yok" deme, yukarıdaki verileri yorumla.
+- Eski tarihli (2021-2022) fiyat tahmini YAPMA. Sadece yukarıdaki canlı fiyatı kullan.
+- Finansal tavsiye değildir uyarısını ekle.
+"""
+
+    # Build Prompt
     conversation_text = ""
     for msg in messages:
         role_label = "Kullanıcı" if msg["role"] == "user" else "Oracle"
         conversation_text += f"\n{role_label}: {msg['content']}\n"
     
-    user_prompt = f"""Önceki konuşma:
+    user_prompt = f"""Geçmiş Konuşma:
 {conversation_text}
 
-Şimdi kullanıcının son sorusuna detaylı ve doğru bir yanıt ver. Markdown formatı kullan, emojiler ekle, önemli noktaları vurgula."""
+Kullanıcı: {message}
+
+Yukarıdaki CANLI PİYASA ANALİZİNİ kullanarak, bir finans uzmanı gibi detaylıca yanıtla."""
 
     try:
         start_time = datetime.now()
@@ -110,14 +181,13 @@ async def chat_with_oracle(
                 json={
                     "model": MODEL_NAME,
                     "prompt": user_prompt,
-                    "system": CHAT_SYSTEM_PROMPT,
+                    "system": final_system_prompt,
                     "stream": False,
                     "options": {
-                        "temperature": 0.7,
-                        "top_p": 0.9,
-                        "top_k": 50,
-                        "num_predict": 2000,  # Allow longer responses
-                        "repeat_penalty": 1.1,
+                        "temperature": 0.4, # Lower for accuracy
+                        "top_p": 0.85,
+                        "num_predict": 3000, # Allow deep explanations
+                        "repeat_penalty": 1.15,
                     }
                 }
             )
@@ -128,9 +198,8 @@ async def chat_with_oracle(
                 result = response.json()
                 ai_response = result.get("response", "").strip()
                 
-                # Clean up response if needed
                 if not ai_response:
-                    ai_response = "Üzgünüm, bu soruya şu anda yanıt veremiyorum. Lütfen tekrar deneyin."
+                    ai_response = "Üzgünüm, yanıt oluşturulamadı."
                 
                 return {
                     "response": ai_response,
@@ -138,23 +207,13 @@ async def chat_with_oracle(
                 }
             else:
                 return {
-                    "response": "⚠️ AI servisi şu anda yanıt veremiyor. Lütfen daha sonra tekrar deneyin.",
+                    "response": "⚠️ AI servisine ulaşılamıyor.",
                     "thinking_time": 0
                 }
                 
-    except httpx.ConnectError:
-        return {
-            "response": "🔴 **Bağlantı Hatası**\n\nOllama servisi çalışmıyor. Lütfen `ollama serve` komutu ile başlatın.",
-            "thinking_time": 0
-        }
-    except httpx.TimeoutException:
-        return {
-            "response": "⚠️ Yanıt süresi aşıldı. Sorunuz çok karmaşık olabilir, lütfen daha basit bir soru sorun.",
-            "thinking_time": CHAT_TIMEOUT
-        }
     except Exception as e:
         return {
-            "response": f"🔴 **Hata:** {str(e)}",
+            "response": f"🔴 Bir hata oluştu: {str(e)}",
             "thinking_time": 0
         }
 
@@ -165,5 +224,5 @@ async def check_chat_available() -> bool:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
             return response.status_code == 200
-    except:
+    except (httpx.TimeoutException, httpx.ConnectError):
         return False

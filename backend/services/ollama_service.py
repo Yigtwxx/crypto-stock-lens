@@ -200,6 +200,46 @@ Respond with ONLY the JSON object, no additional text."""
         return get_fallback_analysis(title, symbol)
 
 
+async def generate_completion(
+    prompt: str,
+    system_prompt: str = "You are a helpful AI assistant.",
+    temperature: float = 0.7,
+    max_tokens: int = 1000
+) -> str:
+    """
+    Generic text generation using Ollama.
+    Useful for generating reports, summaries, etc.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            _log("🔌", f"Generating text with Ollama ({MODEL_NAME})...", Colors.GRAY)
+            
+            response = await client.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": MODEL_NAME,
+                    "prompt": prompt,
+                    "system": system_prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": temperature,
+                        "num_predict": max_tokens,
+                    }
+                }
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get("response", "")
+            else:
+                _log("✗", f"Ollama generation error: {response.status_code}", Colors.RED)
+                return ""
+                
+    except Exception as e:
+        _log("✗", f"Ollama generation failed: {e}", Colors.RED)
+        return ""
+
+
 def parse_llm_response(raw_response: str) -> dict:
     """Parse the LLM response and extract JSON."""
     try:

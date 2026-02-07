@@ -8,3 +8,4 @@ chromadb>=0.4.22
 sentence-transformers>=2.2.0
 pydantic>=2.5.3
 httpx>=0.26.0
+websockets>=10.0

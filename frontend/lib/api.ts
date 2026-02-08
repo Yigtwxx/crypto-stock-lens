@@ -1,6 +1,7 @@
 import { NewsItem, SentimentAnalysis } from '@/store/useStore';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = API_BASE_URL;
 
 export async function fetchNews(assetType?: string): Promise<NewsItem[]> {
     const params = new URLSearchParams();

@@ -3,7 +3,7 @@ import json
 import os
 import asyncio
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from services.ollama_service import generate_completion
 from services.news_service import fetch_all_news
 from services.market_overview_service import fetch_market_overview
@@ -16,16 +16,16 @@ NOTES_FILE = "data/user_notes.json"
 # DATA PERSISTENCE HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _load_json(filepath: str, default: any):
+def _load_json(filepath: str, default: Any) -> Any:
     if not os.path.exists(filepath):
         return default
     try:
         with open(filepath, "r") as f:
             return json.load(f)
-    except:
+    except (json.JSONDecodeError, IOError):
         return default
 
-def _save_json(filepath: str, data: any):
+def _save_json(filepath: str, data: Any) -> None:
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w") as f:
         json.dump(data, f, indent=2)

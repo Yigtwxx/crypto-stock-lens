@@ -702,7 +702,7 @@ async def get_notes():
     """Get all user notes."""
     try:
         from services.analysis_service import get_user_notes
-        return await get_user_notes()
+        return get_user_notes()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -711,7 +711,7 @@ async def create_note(request: NoteRequest):
     """Create a new user note."""
     try:
         from services.analysis_service import add_user_note
-        return await add_user_note(request.title, request.content)
+        return add_user_note(request.title, request.content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -720,7 +720,7 @@ async def delete_note(note_id: str):
     """Delete a user note."""
     try:
         from services.analysis_service import delete_user_note
-        return await delete_user_note(note_id)
+        return delete_user_note(note_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

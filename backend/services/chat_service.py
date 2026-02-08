@@ -1,9 +1,9 @@
 """
-Oracle Chat Service - Conversational AI for financial questions
-Uses Ollama (llama3.1:8b) with extended thinking time for quality responses.
+Oracle Chat Service v2 - Enhanced AI Financial Assistant
+Uses Ollama (llama3.1:8b) with web search and multi-source data analysis.
 """
 import httpx
-import json
+import re
 from typing import List, Dict, Optional
 from datetime import datetime
 
@@ -12,51 +12,170 @@ from datetime import datetime
 OLLAMA_BASE_URL = "http://localhost:11434"
 MODEL_NAME = "llama3.1:8b"
 
-# Extended timeout for thorough responses
-CHAT_TIMEOUT = 180.0  # 3 minutes for complex questions
+# Extended timeout for thorough responses (5 minutes for complex analysis)
+CHAT_TIMEOUT = 300.0
 
-# Financial Oracle system prompt
-CHAT_SYSTEM_PROMPT = """Sen Oracle-X, gelişmiş bir finansal yapay zeka asistanısın. Kripto paralar, hisse senetleri, piyasa analizi ve yatırım stratejileri konusunda uzmansın.
+# Common words to ignore when detecting symbols
+IGNORED_WORDS = {
+    "THE", "AND", "FOR", "ARE", "BUY", "SELL", "HOW", "WHAT", "WHY", "USD", "USDT",
+    "WHEN", "WHERE", "CAN", "WILL", "SHOULD", "COULD", "WOULD", "HAVE", "HAS",
+    "DOES", "DID", "NOT", "YES", "THIS", "THAT", "WHICH", "THERE", "THEIR",
+    "PRICE", "MARKET", "TODAY", "NOW", "GOOD", "BAD", "HIGH", "LOW"
+}
 
-GÖREVLER:
-1. Kullanıcıların finansal sorularını detaylı ve doğru şekilde yanıtla
-2. Teknik analiz, temel analiz ve piyasa trendleri hakkında bilgi ver
-3. Risk yönetimi ve yatırım stratejileri öner
-4. Güncel piyasa koşullarını değerlendir
+# Enhanced Financial Oracle system prompt with strict data binding
+CHAT_SYSTEM_PROMPT = """Sen Oracle-X, gelişmiş bir finansal yapay zeka asistanısın.
 
-YANITLAMA KURALLARI:
-1. Her zaman Türkçe yanıt ver
-2. Yanıtlarını markdown formatında ver
-3. Önemli terimleri **kalın** yap
-4. Sayıları ve fiyatları `kod formatında` göster
-5. Listeler ve maddeler kullan
-6. Bullish/pozitif bilgiler için 🟢, bearish/negatif için 🔴, nötr için 🟡 emoji kullan
-7. Uyarıları ve riskleri ⚠️ ile işaretle
-8. Önemli noktaları 💡 ile vurgula
+🎯 **ANA GÖREV:**
+Kullanıcılara CANLI VERİYE dayalı, GÜNCEL ve DOĞRU finansal bilgi sağla.
 
-ÖRNEK FORMAT:
-**Bitcoin (BTC) Analizi**
+⚠️ **KRİTİK KURALLAR:**
+1. **ASLA ESKİ VERİ KULLANMA** - Sadece aşağıda sağlanan CANLI verileri kullan
+2. **TARİH KONTROLÜ** - Bugünün tarihi sistem tarafından verildi, bunu referans al
+3. **FİYAT DOĞRULUĞU** - Fiyatları SADECE sağlanan verilerden al, tahmin etme
+4. **WEB ARAMALARI** - Web arama sonuçları en güncel bilgiyi içerir, bunları öncelikle kullan
 
-🟢 **Olumlu Faktörler:**
-- Kurumsal alımlar artıyor
-- `$100,000` psikolojik direnç kırıldı
+📋 **YANITLAMA FORMATI:**
+- Markdown kullan
+- Önemli sayıları `kod formatında` göster
+- 🟢 Pozitif, 🔴 Negatif, 🟡 Nötr
+- ⚠️ Uyarılar, 💡 Öneriler
+- Türkçe yanıt ver
 
-🔴 **Risk Faktörleri:**
-- RSI aşırı alım bölgesinde
-- Kısa vadeli düzeltme olası
+🧠 **ANALİZ SÜRECİ:**
+Yanıt vermeden önce şu adımları izle:
+1. Kullanıcı ne soruyor? (Fiyat mı, analiz mi, haber mi?)
+2. CANLI verilerden hangileri bu soruyu yanıtlar?
+3. Web arama sonuçları ne diyor?
+4. Teknik göstergeler (RSI, destek/direnç) ne gösteriyor?
+5. Tüm verileri sentezle ve net bir yanıt oluştur.
 
-💡 **Öneri:** Kademeli alım stratejisi uygulanabilir.
+📊 **VERİ ÖNCELİĞİ:**
+1. Sistem tarafından sağlanan CANLI fiyatlar (en güvenilir)
+2. Web arama sonuçları (güncel haberler için)
+3. Teknik analiz verileri
+4. Genel piyasa göstergeleri
 
-⚠️ **Uyarı:** Bu yatırım tavsiyesi değildir.
+⚠️ **UYARILAR:**
+- "Bilgim yok" deme, verileri yorumla
+- Yatırım tavsiyesi olmadığını belirt
+- Belirsizlik varsa açıkça belirt"""
 
----
 
-KAPSAM:
-- Kripto: Bitcoin, Ethereum, Solana, ve 100+ altcoin
-- Hisse: NASDAQ, NYSE, BIST hisseleri
-- Genel: Makroekonomi, Fed kararları, enflasyon, faiz oranları
+async def detect_symbols(message: str) -> List[str]:
+    """
+    Detect potential trading symbols from user message.
+    Returns list of potential symbols (uppercase, 2-5 characters).
+    """
+    potential = re.findall(r'\b[A-Z]{2,5}\b', message.upper())
+    return [s for s in potential if s not in IGNORED_WORDS]
 
-Detaylı, doğru ve iyi yapılandırılmış yanıtlar ver. Acele etme, kaliteli analiz yap."""
+
+async def fetch_all_market_data(detected_symbols: List[str]) -> Dict[str, any]:
+    """
+    Fetch comprehensive market data from all available sources.
+    """
+    from services.market_overview_service import fetch_market_overview
+    from services.news_service import fetch_all_news
+    from services.fear_greed_service import fetch_fear_greed_index
+    from services.technical_analysis_service import get_technical_analysis
+    
+    data = {
+        "overview": None,
+        "fear_greed": None,
+        "news": [],
+        "technicals": {},
+        "timestamp": datetime.now().strftime('%d %B %Y, %H:%M')
+    }
+    
+    try:
+        # Fetch general market data
+        data["overview"] = await fetch_market_overview()
+    except Exception as e:
+        print(f"Market overview fetch error: {e}")
+    
+    try:
+        data["fear_greed"] = await fetch_fear_greed_index()
+    except Exception as e:
+        print(f"Fear/Greed fetch error: {e}")
+    
+    try:
+        news = await fetch_all_news()
+        data["news"] = news[:5] if news else []
+    except Exception as e:
+        print(f"News fetch error: {e}")
+    
+    # Fetch technicals for detected symbols
+    for symbol in detected_symbols[:3]:  # Limit to 3 symbols
+        try:
+            tech = await get_technical_analysis(f"BINANCE:{symbol}USDT")
+            if tech and tech.get("current_price", 0) > 0:
+                data["technicals"][symbol] = tech
+        except Exception as e:
+            print(f"Technical analysis error for {symbol}: {e}")
+    
+    return data
+
+
+async def build_context_string(market_data: Dict, web_context: str, message: str) -> str:
+    """
+    Build comprehensive context string for the AI.
+    """
+    parts = []
+    
+    # Current date/time
+    parts.append(f"📅 **GÜNCEL TARİH/SAAT:** {market_data['timestamp']}")
+    parts.append("")
+    
+    # Market Overview
+    if market_data["overview"]:
+        ov = market_data["overview"]
+        parts.append("📉 **GENEL PİYASA:**")
+        parts.append(f"• Toplam Piyasa Değeri: ${ov.get('total_market_cap', 0):,.0f}")
+        parts.append(f"• BTC Dominansı: %{ov.get('btc_dominance', 0):.1f}")
+        parts.append(f"• 24s Hacim: ${ov.get('total_24h_volume', 0):,.0f}")
+        parts.append("")
+    
+    # Fear & Greed
+    if market_data["fear_greed"]:
+        fg = market_data["fear_greed"]
+        parts.append(f"😨 **Korku & Açgözlülük İndeksi:** {fg.get('value', 'N/A')} ({fg.get('value_classification', 'N/A')})")
+        parts.append("")
+    
+    # Technical Analysis for each detected symbol
+    if market_data["technicals"]:
+        for symbol, tech in market_data["technicals"].items():
+            parts.append(f"📊 **{symbol} TEKNİK ANALİZ (CANLI):**")
+            parts.append(f"• Fiyat: ${tech.get('current_price', 0):,.4f}")
+            parts.append(f"• RSI (14): {tech.get('rsi_value', 0):.1f} ({tech.get('rsi_signal', 'N/A')})")
+            parts.append(f"• Trend: {tech.get('trend', 'N/A').upper()}")
+            
+            supports = tech.get('support_levels', [])
+            resistances = tech.get('resistance_levels', [])
+            
+            if supports:
+                parts.append(f"• Destek Seviyeleri: {', '.join(supports[:3])}")
+            if resistances:
+                parts.append(f"• Direnç Seviyeleri: {', '.join(resistances[:3])}")
+            
+            target = tech.get('target_price', '')
+            if target:
+                parts.append(f"• Hedef Fiyat: {target}")
+            parts.append("")
+    
+    # Recent News
+    if market_data["news"]:
+        parts.append("📰 **SON HABERLER:**")
+        for i, item in enumerate(market_data["news"][:3], 1):
+            parts.append(f"{i}. {item.title} ({item.source})")
+        parts.append("")
+    
+    # Web Search Results
+    if web_context:
+        parts.append(web_context)
+        parts.append("")
+    
+    return "\n".join(parts)
 
 
 async def chat_with_oracle(
@@ -64,117 +183,64 @@ async def chat_with_oracle(
     history: Optional[List[Dict[str, str]]] = None
 ) -> Dict:
     """
-    Send a message to Oracle and get a response.
-    Injects real-time market data AND specific technical analysis.
+    Enhanced Oracle chat with web search and multi-source analysis.
     """
-    from services.market_overview_service import fetch_market_overview
-    from services.news_service import fetch_all_news
-    from services.fear_greed_service import fetch_fear_greed_index
-    from services.technical_analysis_service import get_technical_analysis
-    import re
-
-    # 1. Fetch General Market Context
+    from services.web_search_service import get_enhanced_context
+    
+    start_time = datetime.now()
+    
+    # Step 1: Detect symbols in user message
+    detected_symbols = await detect_symbols(message)
+    primary_symbol = detected_symbols[0] if detected_symbols else None
+    
+    # Step 2: Fetch all market data (concurrent)
+    market_data = await fetch_all_market_data(detected_symbols)
+    
+    # Step 3: Get web search context
+    web_context = ""
     try:
-        overview = await fetch_market_overview()
-        fg_data = await fetch_fear_greed_index()
-        news = await fetch_all_news()
-        
-        # Format Market Data
-        market_context = "📉 **GENEL PİYASA GÖRÜNÜMÜ:**\n"
-        market_context += f"📅 Tarih: {datetime.now().strftime('%d %B %Y, %H:%M')}\n"
-        market_context += f"• Toplam Piyasa Değeri: ${overview['total_market_cap']:,.0f}\n"
-        market_context += f"• BTC Dominansı: %{overview['btc_dominance']:.1f}\n"
-        market_context += f"• Korku & Açgözlülük: {fg_data['value']} ({fg_data['value_classification']})\n"
-
-        # Format News Headlines (Top 3)
-        market_context += "\n📰 **SON HABERLER:**\n"
-        for item in news[:3]:
-            # Add time ago
-            market_context += f"- {item.title} ({item.source})\n"
-        
+        web_context = await get_enhanced_context(message, primary_symbol)
     except Exception as e:
-        print(f"Error fetching general context: {e}")
-        market_context = "⚠️ Genel piyasa verileri alınamadı."
-
-    # 2. Detect Specific Symbol & Fetch Technicals
-    # Regex to find potential tickers (e.g., BTC, ETH, SOL, AVAX) - 2 to 5 uppercase letters
-    potential_symbols = re.findall(r'\b[A-Z]{2,5}\b', message.upper())
+        print(f"Web search error: {e}")
     
-    # Common words to ignore
-    ignored_words = {"THE", "AND", "FOR", "ARE", "BUY", "SELL", "HOW", "WHAT", "WHY", "USD", "USDT"}
-    detected_symbol = None
-    technical_context = ""
+    # Step 4: Build comprehensive context
+    full_context = await build_context_string(market_data, web_context, message)
     
-    for word in potential_symbols:
-        if word in ignored_words: continue
-        
-        # Try to fetch technicals to validate if it's a crypto
-        # We try adding USDT to it
-        tech_data = await get_technical_analysis(f"BINANCE:{word}USDT")
-        
-        if tech_data and "current_price" in tech_data and tech_data["current_price"] > 0:
-            detected_symbol = word
-            
-            # Format Technical Data
-            technical_context = f"\n📊 **{word} İÇİN TEKNİK ANALİZ (CANLI):**\n"
-            technical_context += f"• Fiyat: ${tech_data.get('current_price'):,.4f}\n"
-            technical_context += f"• RSI (14): {tech_data.get('rsi_value'):.1f} ({tech_data.get('rsi_signal')})\n"
-            technical_context += f"• Trend: {tech_data.get('trend').upper()}\n"
-            technical_context += f"• Destek Seviyeleri: {', '.join(tech_data.get('support_levels', []))}\n"
-            technical_context += f"• Direnç Seviyeleri: {', '.join(tech_data.get('resistance_levels', []))}\n"
-            technical_context += f"• Hedef Fiyat: {tech_data.get('target_price')}\n"
-            
-            # Add specific prompt instruction
-            market_context += technical_context
-            break # Focus on the first valid symbol found
-            
-    # 3. Build Conversation Context
-    messages = []
-    
+    # Step 5: Build conversation history
+    conversation_text = ""
     if history:
-        for msg in history[-6:]:
-            messages.append({
-                "role": msg.get("role", "user"),
-                "content": msg.get("content", "")
-            })
+        for msg in history[-4:]:  # Last 4 messages for context
+            role = "Kullanıcı" if msg.get("role") == "user" else "Oracle"
+            conversation_text += f"\n{role}: {msg.get('content', '')}\n"
     
-    # 4. Construct Advanced System Prompt
+    # Step 6: Construct final system prompt
     final_system_prompt = f"""{CHAT_SYSTEM_PROMPT}
 
-🔍 **CANLI VERİ KAYNAĞI:**
-Aşağıdaki veriler şu anda sistemden çekilmiştir. Yanıtında KESİNLİKLE bu verileri kullan.
-{market_context}
+═══════════════════════════════════════════════════
+🔴 CANLI VERİ KAYNAĞI - SADECE BUNLARI KULLAN 🔴
+═══════════════════════════════════════════════════
 
-🧠 **DÜŞÜNME SÜRECİ (CHAIN OF THOUGHT):**
-Yanıt vermeden önce adım adım düşün:
-1. Kullanıcı ne soruyor? (Genel piyasa mı, özel bir coin mi?)
-2. Elimdeki CANLI veriler bu soruyu yanıtlamak için yeterli mi?
-3. Eğer teknik analiz verisi varsa (RSI, Destek/Direnç), bunları yorumla. "RSI 70 üzeri, yani aşırı alım var" gibi.
-4. Haberler piyasayı nasıl etkiliyor?
-5. Sonuç olarak net bir strateji veya yanıt oluştur.
+{full_context}
 
-⚠️ **ÖNEMLİ:**
-- Asla "bilgim yok" deme, yukarıdaki verileri yorumla.
-- Eski tarihli (2021-2022) fiyat tahmini YAPMA. Sadece yukarıdaki canlı fiyatı kullan.
-- Finansal tavsiye değildir uyarısını ekle.
+═══════════════════════════════════════════════════
 """
 
-    # Build Prompt
-    conversation_text = ""
-    for msg in messages:
-        role_label = "Kullanıcı" if msg["role"] == "user" else "Oracle"
-        conversation_text += f"\n{role_label}: {msg['content']}\n"
-    
+    # Step 7: Build user prompt
     user_prompt = f"""Geçmiş Konuşma:
 {conversation_text}
 
-Kullanıcı: {message}
+Kullanıcı Sorusu: {message}
 
-Yukarıdaki CANLI PİYASA ANALİZİNİ kullanarak, bir finans uzmanı gibi detaylıca yanıtla."""
+📌 GÖREV:
+1. Yukarıdaki CANLI VERİLERİ analiz et
+2. Web arama sonuçlarını değerlendir
+3. Teknik göstergeleri yorumla
+4. Net, doğru ve güncel bir yanıt ver
 
+Yanıtını şimdi oluştur:"""
+
+    # Step 8: Call Ollama
     try:
-        start_time = datetime.now()
-        
         async with httpx.AsyncClient(timeout=CHAT_TIMEOUT) as client:
             response = await client.post(
                 f"{OLLAMA_BASE_URL}/api/generate",
@@ -184,10 +250,11 @@ Yukarıdaki CANLI PİYASA ANALİZİNİ kullanarak, bir finans uzmanı gibi detay
                     "system": final_system_prompt,
                     "stream": False,
                     "options": {
-                        "temperature": 0.4, # Lower for accuracy
-                        "top_p": 0.85,
-                        "num_predict": 3000, # Allow deep explanations
-                        "repeat_penalty": 1.15,
+                        "temperature": 0.3,    # Lower for accuracy
+                        "top_p": 0.9,
+                        "num_predict": 4000,   # Allow detailed responses
+                        "repeat_penalty": 1.1,
+                        "num_ctx": 8192,       # Larger context window
                     }
                 }
             )
@@ -199,22 +266,46 @@ Yukarıdaki CANLI PİYASA ANALİZİNİ kullanarak, bir finans uzmanı gibi detay
                 ai_response = result.get("response", "").strip()
                 
                 if not ai_response:
-                    ai_response = "Üzgünüm, yanıt oluşturulamadı."
+                    ai_response = "Üzgünüm, yanıt oluşturulamadı. Lütfen tekrar deneyin."
+                
+                # Add data sources indicator
+                sources_used = []
+                if market_data["technicals"]:
+                    sources_used.append("Teknik Analiz")
+                if market_data["news"]:
+                    sources_used.append("Haberler")
+                if web_context:
+                    sources_used.append("Web Arama")
+                if market_data["fear_greed"]:
+                    sources_used.append("Sentiment")
                 
                 return {
                     "response": ai_response,
-                    "thinking_time": round(elapsed, 1)
+                    "thinking_time": round(elapsed, 1),
+                    "sources": sources_used,
+                    "detected_symbol": primary_symbol
                 }
             else:
                 return {
-                    "response": "⚠️ AI servisine ulaşılamıyor.",
-                    "thinking_time": 0
+                    "response": "⚠️ AI servisine ulaşılamıyor. Lütfen Ollama'nın çalıştığından emin olun.",
+                    "thinking_time": 0,
+                    "sources": [],
+                    "detected_symbol": None
                 }
                 
+    except httpx.TimeoutException:
+        return {
+            "response": "⏱️ Yanıt süresi aşıldı. Soru çok karmaşık olabilir, daha basit bir şekilde sormayı deneyin.",
+            "thinking_time": 0,
+            "sources": [],
+            "detected_symbol": None
+        }
     except Exception as e:
         return {
             "response": f"🔴 Bir hata oluştu: {str(e)}",
-            "thinking_time": 0
+            "thinking_time": 0,
+            "sources": [],
+            "detected_symbol": None
         }
 
 

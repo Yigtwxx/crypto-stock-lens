@@ -4,6 +4,7 @@ Supports: CryptoCompare, NewsAPI, RSS feeds
 """
 import httpx
 import asyncio
+import re
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import hashlib
@@ -36,7 +37,7 @@ def parse_feed_date(entry) -> datetime:
                 if result > now:
                     return now
                 return result
-            except:
+            except (ValueError, TypeError):
                 pass
         
         # Fallback to parsed tuple (feedparser parses to UTC struct_time)
@@ -51,7 +52,7 @@ def parse_feed_date(entry) -> datetime:
             if result > now:
                 return now
             return result
-    except:
+    except (ValueError, TypeError, AttributeError):
         pass
     
     return now
@@ -320,7 +321,6 @@ STOCK_COMPANY_NAMES = sorted(
 # Short ticker symbols (all caps, 1-4 chars) - need word boundary checking
 STOCK_SHORT_TICKERS = [(k, v) for k, v in STOCK_SYMBOLS.items() if k.isupper() and len(k) <= 4]
 
-import re
 
 def detect_symbol(text: str, asset_type: str, title: str = "") -> Optional[str]:
     """
@@ -443,7 +443,6 @@ async def fetch_coindesk_rss() -> List[NewsItem]:
             summary = entry.get("summary", "")
             
             # Clean HTML from summary
-            import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
             symbol = detect_symbol(summary, "crypto", title)
@@ -479,7 +478,6 @@ async def fetch_cointelegraph_rss() -> List[NewsItem]:
             summary = entry.get("summary", "")
             
             # Clean HTML from summary
-            import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
             symbol = detect_symbol(summary, "crypto", title)
@@ -516,7 +514,6 @@ async def fetch_marketwatch_rss() -> List[NewsItem]:
             summary = entry.get("summary", "")
             
             # Clean HTML
-            import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
             symbol = detect_symbol(summary, "stock", title)
@@ -551,7 +548,6 @@ async def fetch_investing_rss() -> List[NewsItem]:
             summary = entry.get("summary", "")
             
             # Clean HTML
-            import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
             symbol = detect_symbol(summary, "stock", title)
@@ -586,7 +582,6 @@ async def fetch_seeking_alpha_rss() -> List[NewsItem]:
             summary = entry.get("summary", "")
             
             # Clean HTML
-            import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
             symbol = detect_symbol(summary, "stock", title)
@@ -621,7 +616,6 @@ async def fetch_bloomberght_rss() -> List[NewsItem]:
             summary = entry.get("description", "")
             
             # Clean HTML and CDATA
-            import re
             title = re.sub(r'<!\[CDATA\[|\]\]>', '', title).strip()
             summary = re.sub(r'<!\[CDATA\[|\]\]>', '', summary)
             summary = re.sub(r'<[^>]+>', '', summary).strip()
@@ -663,7 +657,6 @@ async def fetch_paraanaliz_rss() -> List[NewsItem]:
             summary = entry.get("description", "")
             
             # Clean HTML
-            import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
             # Detect if it's crypto or stock related
@@ -703,7 +696,6 @@ async def fetch_koinbulteni_rss() -> List[NewsItem]:
             summary = entry.get("description", "")
             
             # Clean HTML
-            import re
             summary = re.sub(r'<[^>]+>', '', summary)
             
             symbol = detect_symbol(summary, "crypto", title)

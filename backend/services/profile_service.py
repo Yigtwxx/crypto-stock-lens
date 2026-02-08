@@ -11,14 +11,16 @@ from services.supabase_service import get_supabase
 async def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
     """
     Get user profile with subscription info.
+    Creates a default profile if one doesn't exist.
     """
     try:
         supabase = get_supabase()
         
-        response = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+        # First try to get existing profile
+        response = supabase.table("profiles").select("*").eq("id", user_id).execute()
         
-        if response.data:
-            profile = response.data
+        if response.data and len(response.data) > 0:
+            profile = response.data[0]
             
             # Reset AI queries if new day
             if profile.get("ai_queries_reset_at"):
@@ -40,10 +42,39 @@ async def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
             profile["ai_queries_remaining"] = max(0, profile["ai_query_limit"] - profile.get("ai_queries_today", 0))
             
             return profile
+        
+        # Profile doesn't exist - create a default one
+        print(f"Creating default profile for user: {user_id}")
+        default_profile = {
+            "id": user_id,
+            "subscription_plan": "free",
+            "ai_queries_today": 0,
+            "ai_queries_reset_at": date.today().isoformat(),
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        }
+        
+        try:
+            supabase.table("profiles").insert(default_profile).execute()
+        except Exception as insert_error:
+            print(f"Could not create profile (may already exist): {insert_error}")
+        
+        # Return default profile with computed fields
+        default_profile["ai_query_limit"] = 5
+        default_profile["ai_queries_remaining"] = 5
+        return default_profile
+        
     except Exception as e:
         print(f"Error getting profile: {e}")
     
-    return None
+    # Return a minimal default profile even on error
+    return {
+        "id": user_id,
+        "subscription_plan": "free",
+        "ai_queries_today": 0,
+        "ai_query_limit": 5,
+        "ai_queries_remaining": 5
+    }
 
 
 async def update_user_profile(user_id: str, data: Dict[str, Any]) -> bool:

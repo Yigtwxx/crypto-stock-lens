@@ -98,7 +98,7 @@ export default function Dashboard() {
                             <button
                                 className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${activeTab === 'overview'
                                     ? 'text-yellow-400'
-                                    : 'text-amber-400 hover:text-white'
+                                    : 'text-gray-400 hover:text-white'
                                     }`}
                             >
                                 <BarChart3 className="w-4 h-4" />

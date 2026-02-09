@@ -614,6 +614,27 @@ async def get_liquidation_history(symbol: str):
     return await liquidation_service.get_liquidation_history(symbol)
 
 
+@app.get("/api/liquidations/levels/{symbol}")
+async def get_liquidation_levels(
+    symbol: str,
+    price_min: float,
+    price_max: float,
+    num_bins: int = 100,
+    leverage: int = 50
+):
+    """
+    Get cumulative liquidation levels grouped by price bins.
+    For Coinglass-style heatmap visualization.
+    """
+    return await liquidation_service.get_liquidation_levels(
+        symbol=symbol,
+        price_min=price_min,
+        price_max=price_max,
+        num_bins=num_bins,
+        leverage=leverage
+    )
+
+
 @app.get("/api/market/candles/{symbol}")
 async def get_market_candles(symbol: str, interval: str = "1h"):
     """

@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 import random
@@ -81,11 +81,21 @@ app = FastAPI(
 async def startup_event():
     """Start background services."""
     await liquidation_service.start()
+    # Start price streaming service (lazy - starts when first client connects)
+    # Uncomment below to start immediately on server start:
+    # from services.websocket_service import price_streaming_service
+    # await price_streaming_service.start()
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Stop background services."""
     await liquidation_service.stop()
+    # Stop price streaming if running
+    try:
+        from services.websocket_service import price_streaming_service
+        await price_streaming_service.stop()
+    except Exception:
+        pass
 
 # CORS middleware for Next.js frontend
 app.add_middleware(
@@ -1082,6 +1092,289 @@ async def increment_ai_query(user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CCXT MULTI-EXCHANGE ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/exchanges")
+async def get_exchanges():
+    """
+    Get list of supported exchanges for multi-exchange price comparison.
+    
+    Returns list of exchange IDs that can be used with other endpoints.
+    Supports 100+ exchanges via CCXT library.
+    """
+    try:
+        from services.ccxt_service import get_supported_exchanges, get_exchange_info
+        exchanges = get_supported_exchanges()
+        return {
+            "exchanges": [
+                {
+                    "id": ex,
+                    **(get_exchange_info(ex) or {"name": ex.capitalize()})
+                }
+                for ex in exchanges
+            ],
+            "total": len(exchanges)
+        }
+    except Exception as e:
+        print(f"Error getting exchanges: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/exchanges/all")
+async def get_all_exchanges():
+    """
+    Get list of ALL 100+ exchanges supported by CCXT.
+    Use with caution - not all may be reliable or available.
+    """
+    try:
+        from services.ccxt_service import get_all_ccxt_exchanges
+        exchanges = get_all_ccxt_exchanges()
+        return {"exchanges": exchanges, "total": len(exchanges)}
+    except Exception as e:
+        print(f"Error getting all exchanges: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/exchanges/{exchange_id}/ticker/{base}/{quote}")
+async def get_exchange_ticker(exchange_id: str, base: str, quote: str):
+    """
+    Get ticker data from a specific exchange.
+    
+    Args:
+        exchange_id: Exchange ID (e.g., 'binance', 'kraken', 'coinbasepro')
+        base: Base currency (e.g., 'BTC')
+        quote: Quote currency (e.g., 'USDT')
+    
+    Example: /api/exchanges/binance/ticker/BTC/USDT
+    """
+    try:
+        from services.ccxt_service import fetch_ticker, get_supported_exchanges
+        
+        symbol = f"{base.upper()}/{quote.upper()}"
+        
+        if exchange_id not in get_supported_exchanges():
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Exchange '{exchange_id}' not supported. Use /api/exchanges to see available exchanges."
+            )
+        
+        result = await fetch_ticker(exchange_id, symbol)
+        
+        if not result:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Could not fetch {symbol} from {exchange_id}. Symbol may not be available."
+            )
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error fetching ticker: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/multi-exchange/prices/{base}/{quote}")
+async def get_multi_exchange_prices(base: str, quote: str, exchanges: Optional[str] = None):
+    """
+    Get prices for a trading pair from multiple exchanges simultaneously.
+    
+    Args:
+        base: Base currency (e.g., 'BTC')
+        quote: Quote currency (e.g., 'USDT')
+        exchanges: Comma-separated list of exchange IDs (optional, defaults to all supported)
+    
+    Example: /api/multi-exchange/prices/BTC/USDT?exchanges=binance,kraken,coinbasepro
+    
+    Returns prices sorted from lowest to highest.
+    """
+    try:
+        from services.ccxt_service import fetch_multi_exchange_prices
+        
+        symbol = f"{base.upper()}/{quote.upper()}"
+        exchange_list = exchanges.split(",") if exchanges else None
+        
+        results = await fetch_multi_exchange_prices(symbol, exchange_list)
+        
+        return {
+            "symbol": symbol,
+            "prices": results,
+            "exchanges_queried": len(exchange_list) if exchange_list else 8,
+            "exchanges_responded": len(results),
+            "lowest_price": results[0] if results else None,
+            "highest_price": results[-1] if results else None,
+        }
+    except Exception as e:
+        print(f"Error fetching multi-exchange prices: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/arbitrage/{base}/{quote}")
+async def get_arbitrage_opportunity(
+    base: str, 
+    quote: str, 
+    min_spread: float = 0.5,
+    exchanges: Optional[str] = None
+):
+    """
+    Detect arbitrage opportunities for a trading pair across exchanges.
+    
+    Args:
+        base: Base currency (e.g., 'BTC')
+        quote: Quote currency (e.g., 'USDT')
+        min_spread: Minimum spread percentage to flag as opportunity (default: 0.5%)
+        exchanges: Comma-separated list of exchange IDs (optional)
+    
+    Example: /api/arbitrage/BTC/USDT?min_spread=0.3
+    
+    Returns:
+        - has_opportunity: Whether an arbitrage opportunity exists
+        - spread_percent: Price difference as percentage
+        - buy_exchange: Where to buy (lowest price)
+        - sell_exchange: Where to sell (highest price)
+        - potential_profit_per_unit: Profit potential per unit traded
+    """
+    try:
+        from services.ccxt_service import detect_arbitrage_opportunities
+        
+        symbol = f"{base.upper()}/{quote.upper()}"
+        exchange_list = exchanges.split(",") if exchanges else None
+        
+        result = await detect_arbitrage_opportunities(symbol, min_spread, exchange_list)
+        return result
+    except Exception as e:
+        print(f"Error detecting arbitrage: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/arbitrage/scan")
+async def scan_arbitrage_opportunities(
+    min_spread: float = 0.5,
+    symbols: Optional[str] = None,
+    exchanges: Optional[str] = None
+):
+    """
+    Scan multiple trading pairs for arbitrage opportunities.
+    
+    Args:
+        min_spread: Minimum spread percentage to flag (default: 0.5%)
+        symbols: Comma-separated trading pairs (e.g., 'BTC/USDT,ETH/USDT')
+        exchanges: Comma-separated exchange IDs
+    
+    Example: /api/arbitrage/scan?min_spread=0.3&symbols=BTC/USDT,ETH/USDT,SOL/USDT
+    
+    Returns all pairs sorted by spread percentage (highest first).
+    """
+    try:
+        from services.ccxt_service import scan_all_arbitrage_opportunities
+        
+        symbol_list = symbols.split(",") if symbols else None
+        exchange_list = exchanges.split(",") if exchanges else None
+        
+        results = await scan_all_arbitrage_opportunities(
+            symbols=symbol_list,
+            min_spread_percent=min_spread,
+            exchanges=exchange_list
+        )
+        
+        opportunities = [r for r in results if r.get("has_opportunity")]
+        
+        return {
+            "total_scanned": len(results),
+            "opportunities_found": len(opportunities),
+            "min_spread_threshold": min_spread,
+            "opportunities": opportunities,
+            "all_results": results
+        }
+    except Exception as e:
+        print(f"Error scanning arbitrage: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WEBSOCKET REAL-TIME PRICE STREAMING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.websocket("/ws/prices")
+async def websocket_prices(websocket: WebSocket):
+    """
+    Real-time price streaming via WebSocket.
+    
+    Connect to receive live price updates for top cryptocurrencies.
+    Updates are pushed as prices change (millisecond latency).
+    
+    Message format:
+    {
+        "type": "price_update",
+        "symbol": "BTCUSDT",
+        "price": 97000.50,
+        "change_24h": 1.25,
+        "direction": "up" | "down" | "none",
+        "timestamp": "2026-02-09T19:20:00.000000"
+    }
+    """
+    from services.websocket_service import (
+        get_connection_manager, 
+        get_streaming_service
+    )
+    
+    manager = get_connection_manager()
+    streaming_service = get_streaming_service()
+    
+    await websocket.accept()
+    await manager.connect(websocket)
+    
+    # Start streaming service if not already running
+    if not streaming_service.is_running:
+        await streaming_service.start()
+    
+    try:
+        # Send initial snapshot of last known prices
+        last_prices = streaming_service.get_last_prices()
+        if last_prices:
+            await websocket.send_json({
+                "type": "snapshot",
+                "prices": last_prices,
+                "timestamp": datetime.now().isoformat()
+            })
+        
+        # Keep connection alive, receive any client messages (ping/pong)
+        while True:
+            try:
+                # Wait for client messages (ping, subscribe, etc.)
+                data = await websocket.receive_text()
+                
+                # Handle ping/pong for keepalive
+                if data == "ping":
+                    await websocket.send_text("pong")
+                    
+            except WebSocketDisconnect:
+                break
+                
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+    finally:
+        await manager.disconnect(websocket)
+
+
+@app.get("/api/websocket/status")
+async def get_websocket_status():
+    """Get WebSocket streaming service status."""
+    try:
+        from services.websocket_service import get_streaming_stats
+        stats = await get_streaming_stats()
+        return stats
+    except Exception as e:
+        return {
+            "is_running": False,
+            "error": str(e)
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+

@@ -1,28 +1,10 @@
 [
   {
     "id": "1",
-    "name": "new",
+    "name": "my",
     "items": [
       {
-        "symbol": "AAPL",
-        "type": "STOCK"
-      },
-      {
-        "symbol": "MSFT",
-        "type": "STOCK"
-      },
-      {
-        "symbol": "GOOGL",
-        "type": "STOCK"
-      }
-    ]
-  },
-  {
-    "id": "2",
-    "name": "new",
-    "items": [
-      {
-        "symbol": "BTC",
+        "symbol": "ETH",
         "type": "CRYPTO"
       },
       {

@@ -117,7 +117,7 @@ async def fetch_all_market_data(detected_symbols: List[str]) -> Dict[str, any]:
     return data
 
 
-async def build_context_string(market_data: Dict, web_context: str, message: str) -> str:
+async def build_context_string(market_data: Dict, web_context: str, message: str, rag_context: str = "") -> str:
     """
     Build comprehensive context string for the AI.
     """
@@ -170,6 +170,11 @@ async def build_context_string(market_data: Dict, web_context: str, message: str
             parts.append(f"{i}. {item.title} ({item.source})")
         parts.append("")
     
+    # RAG 2.0 Historical Context
+    if rag_context:
+        parts.append(rag_context)
+        parts.append("")
+    
     # Web Search Results
     if web_context:
         parts.append(web_context)
@@ -203,8 +208,26 @@ async def chat_with_oracle(
     except Exception as e:
         print(f"Web search error: {e}")
     
-    # Step 4: Build comprehensive context
-    full_context = await build_context_string(market_data, web_context, message)
+    # Step 4b: Get RAG 2.0 historical context (for temporal queries)
+    rag_context = ""
+    # Check if query is about historical events or patterns
+    historical_keywords = ["geçen", "önceki", "tarihte", "halving", "ath", "dip", "crash", 
+                          "geçmiş", "nasıl davran", "ne oldu", "benzer", "daha önce"]
+    is_historical_query = any(kw in message.lower() for kw in historical_keywords)
+    
+    if is_historical_query or primary_symbol:
+        try:
+            from services.rag_v2_service import get_rag_context_v2
+            rag_context = get_rag_context_v2(
+                query=message,
+                symbol=primary_symbol,
+                context_type="all"
+            )
+        except Exception as e:
+            print(f"RAG 2.0 context error: {e}")
+    
+    # Step 5: Build comprehensive context (now includes RAG)
+    full_context = await build_context_string(market_data, web_context, message, rag_context)
     
     # Step 5: Build conversation history
     conversation_text = ""

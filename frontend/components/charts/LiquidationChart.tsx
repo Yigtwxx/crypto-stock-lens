@@ -68,41 +68,47 @@ export default function LiquidationChart() {
     const [candles, setCandles] = useState<Candle[]>([]);
     const [liquidations, setLiquidations] = useState<LiquidationEvent[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [timePriceBins, setTimePriceBins] = useState<TimePriceBin[]>([]);
     const [maxVolume, setMaxVolume] = useState(0);
     const [priceRange, setPriceRange] = useState<{ min: number; max: number; binSize: number }>({ min: 0, max: 0, binSize: 1 });
 
-    // Fetch initial data
-    useEffect(() => {
-        const loadHistory = async () => {
-            if (candles.length === 0) setLoading(true);
-            try {
-                const symbol = chartSymbol.split(':')[1] || chartSymbol;
+    // Fetch data function (manual trigger)
+    const fetchData = useCallback(async (isInitial: boolean = false) => {
+        if (isInitial) setLoading(true);
+        else setRefreshing(true);
 
-                // 1. Fetch Candles
-                const candleRes = await fetch(`${API_BASE_URL}/api/market/candles/${symbol}?interval=1h&limit=168`);
-                if (candleRes.ok) {
-                    const candleData = await candleRes.json();
-                    setCandles(candleData);
-                }
+        try {
+            const symbol = chartSymbol.split(':')[1] || chartSymbol;
 
-                // 2. Fetch Liquidation History
-                const liqRes = await fetch(`${API_BASE_URL}/api/liquidations/history/${symbol}`);
-                if (liqRes.ok) {
-                    const liqData = await liqRes.json();
-                    setLiquidations(liqData);
-                }
-            } catch (error) {
-                console.error("Failed to load chart data", error);
-            } finally {
-                setLoading(false);
+            // 1. Fetch Candles
+            const candleRes = await fetch(`${API_BASE_URL}/api/market/candles/${symbol}?interval=1h&limit=168`);
+            if (candleRes.ok) {
+                const candleData = await candleRes.json();
+                setCandles(candleData);
             }
-        };
 
-        loadHistory();
-        const interval = setInterval(loadHistory, 5000);
-        return () => clearInterval(interval);
+            // 2. Fetch Liquidation History
+            const liqRes = await fetch(`${API_BASE_URL}/api/liquidations/history/${symbol}`);
+            if (liqRes.ok) {
+                const liqData = await liqRes.json();
+                setLiquidations(liqData);
+            }
+
+            setLastUpdated(new Date());
+        } catch (error) {
+            console.error("Failed to load chart data", error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
     }, [chartSymbol]);
+
+    // Initial load only (no auto-refresh)
+    useEffect(() => {
+        fetchData(true);
+    }, [fetchData]);
 
     // Build Time+Price based bins (Coinglass Style)
     const buildTimePriceBins = useCallback((events: LiquidationEvent[], candleData: Candle[]) => {
@@ -260,38 +266,49 @@ export default function LiquidationChart() {
         }
     }, [candles]);
 
-    // Coinglass-style Color Interpolator
+    // Coinglass-style Color Interpolator - ENHANCED VISIBILITY
     // Purple (low) → Blue → Cyan → Yellow (high)
-    const getHeatmapColor = useCallback((t: number) => {
+    const getHeatmapColor = useCallback((t: number, forGlow: boolean = false) => {
         // t is normalized volume 0..1
         // Coinglass gradient: Purple → Blue → Cyan/Teal → Yellow
+        // forGlow = true returns the raw RGB for glow effect
 
-        if (t < 0.15) {
-            // Deep Purple (barely visible)
-            return `rgba(61, 12, 116, ${0.3 + t * 2})`;
+        const baseAlpha = forGlow ? 1 : (0.65 + t * 0.35); // Much higher base opacity
+
+        if (t < 0.1) {
+            // Deep Purple - more visible base
+            return `rgba(75, 20, 130, ${baseAlpha})`;
         }
-        if (t < 0.35) {
-            // Blue transition
-            const localT = (t - 0.15) / 0.2;
-            const r = Math.floor(61 - 61 * localT);
-            const g = Math.floor(12 + 90 * localT);
-            const b = Math.floor(116 + 88 * localT);
-            return `rgba(${r}, ${g}, ${b}, ${0.6 + t * 0.3})`;
+        if (t < 0.25) {
+            // Purple to Blue transition
+            const localT = (t - 0.1) / 0.15;
+            const r = Math.floor(75 - 45 * localT);
+            const g = Math.floor(20 + 60 * localT);
+            const b = Math.floor(130 + 70 * localT);
+            return `rgba(${r}, ${g}, ${b}, ${baseAlpha})`;
         }
-        if (t < 0.6) {
-            // Cyan/Teal
-            const localT = (t - 0.35) / 0.25;
-            const r = Math.floor(0 + 0 * localT);
-            const g = Math.floor(102 + 104 * localT);
-            const b = Math.floor(204 - 15 * localT);
-            return `rgba(${r}, ${g}, ${b}, ${0.7 + t * 0.2})`;
+        if (t < 0.5) {
+            // Blue to Cyan/Teal
+            const localT = (t - 0.25) / 0.25;
+            const r = Math.floor(30 - 30 * localT);
+            const g = Math.floor(80 + 126 * localT);
+            const b = Math.floor(200 + 9 * localT);
+            return `rgba(${r}, ${g}, ${b}, ${baseAlpha})`;
         }
-        // Yellow (brightest)
-        const localT = (t - 0.6) / 0.4;
-        const r = Math.floor(0 + 252 * localT);
-        const g = Math.floor(206 + 49 * localT);
-        const b = Math.floor(189 - 189 * localT);
-        return `rgba(${r}, ${g}, ${b}, ${0.85 + t * 0.15})`;
+        if (t < 0.75) {
+            // Cyan to Yellow-Green
+            const localT = (t - 0.5) / 0.25;
+            const r = Math.floor(0 + 150 * localT);
+            const g = Math.floor(206 + 40 * localT);
+            const b = Math.floor(209 - 150 * localT);
+            return `rgba(${r}, ${g}, ${b}, ${baseAlpha})`;
+        }
+        // Bright Yellow (highest intensity)
+        const localT = (t - 0.75) / 0.25;
+        const r = Math.floor(150 + 102 * localT);
+        const g = Math.floor(246 + 10 * localT);
+        const b = Math.floor(59 - 59 * localT);
+        return `rgba(${r}, ${g}, ${b}, ${baseAlpha})`;
     }, []);
 
     // Sync Overlay (Animation Loop) - Coinglass style: draw cells per candle
@@ -319,55 +336,79 @@ export default function LiquidationChart() {
             // Calculate candle width from time scale
             const timeScale = chartRef.current.timeScale();
 
-            // Estimate candle width by checking coordinates of adjacent candles
-            let candleWidth = 12; // Default
+            // Estimate candle width - LARGER for visibility
+            let candleWidth = 18; // Larger default
             if (candles.length >= 2) {
                 const x1 = timeScale.timeToCoordinate(candles[0].time);
                 const x2 = timeScale.timeToCoordinate(candles[1].time);
                 if (x1 !== null && x2 !== null) {
-                    candleWidth = Math.max(Math.abs(x2 - x1), 4);
+                    candleWidth = Math.max(Math.abs(x2 - x1) * 1.2, 12); // 20% wider
                 }
             }
 
             // Calculate cell height based on price bins
             const { binSize } = priceRange;
 
-            // Draw each time+price cell
-            timePriceBins.forEach(bin => {
+            // Sort bins by intensity for proper layering (low first, high on top)
+            const sortedBins = [...timePriceBins].sort((a, b) => a.volume - b.volume);
+
+            // Draw each time+price cell with enhanced visibility
+            sortedBins.forEach(bin => {
                 const x = timeScale.timeToCoordinate(bin.time);
                 const y = candleSeriesRef.current!.priceToCoordinate(bin.price);
 
                 if (x === null || y === null) return;
-                if (x < 0 || y < -50 || y > height + 50) return;
+                if (x < -50 || x > width + 50 || y < -50 || y > height + 50) return;
 
                 const intensity = bin.volume / maxVolume;
 
-                // Skip very low intensity for cleaner look
-                if (intensity < 0.03) return;
+                // Lower threshold - show more data points
+                if (intensity < 0.01) return;
 
                 const color = getHeatmapColor(intensity);
+                const glowColor = getHeatmapColor(intensity, true);
 
-                // Calculate cell height in pixels (based on price bin size)
+                // Calculate cell height in pixels - LARGER minimum
                 const priceTop = bin.price + binSize / 2;
                 const priceBottom = bin.price - binSize / 2;
                 const yTop = candleSeriesRef.current!.priceToCoordinate(priceTop);
                 const yBottom = candleSeriesRef.current!.priceToCoordinate(priceBottom);
 
-                let cellHeight = 15; // Default
+                let cellHeight = 20; // Larger default
                 if (yTop !== null && yBottom !== null) {
-                    cellHeight = Math.max(Math.abs(yBottom - yTop), 8);
+                    cellHeight = Math.max(Math.abs(yBottom - yTop), 14); // Minimum 14px
                 }
 
-                // Draw cell centered on candle time, behind the candle
+                // Draw cell centered on candle time
                 const cellX = x - candleWidth / 2;
                 const cellY = y - cellHeight / 2;
 
-                // Create soft glow effect
+                // Stronger glow effect for high intensity
                 ctx.save();
-                ctx.shadowColor = color;
-                ctx.shadowBlur = 8;
+                ctx.shadowColor = glowColor;
+                ctx.shadowBlur = 12 + intensity * 20; // Dynamic blur based on intensity
                 ctx.fillStyle = color;
-                ctx.fillRect(cellX, cellY, candleWidth, cellHeight);
+
+                // Round rect for smoother look
+                const radius = Math.min(4, cellHeight / 4);
+                ctx.beginPath();
+                ctx.moveTo(cellX + radius, cellY);
+                ctx.lineTo(cellX + candleWidth - radius, cellY);
+                ctx.quadraticCurveTo(cellX + candleWidth, cellY, cellX + candleWidth, cellY + radius);
+                ctx.lineTo(cellX + candleWidth, cellY + cellHeight - radius);
+                ctx.quadraticCurveTo(cellX + candleWidth, cellY + cellHeight, cellX + candleWidth - radius, cellY + cellHeight);
+                ctx.lineTo(cellX + radius, cellY + cellHeight);
+                ctx.quadraticCurveTo(cellX, cellY + cellHeight, cellX, cellY + cellHeight - radius);
+                ctx.lineTo(cellX, cellY + radius);
+                ctx.quadraticCurveTo(cellX, cellY, cellX + radius, cellY);
+                ctx.closePath();
+                ctx.fill();
+
+                // Add extra glow layer for high intensity
+                if (intensity > 0.5) {
+                    ctx.shadowBlur = 25;
+                    ctx.fill();
+                }
                 ctx.restore();
             });
 
@@ -406,6 +447,32 @@ export default function LiquidationChart() {
             {/* Legend */}
             {maxVolume > 0 && <HeatmapLegend maxValue={maxVolume} />}
 
+            {/* Refresh Button - Top Right */}
+            <div className="absolute top-2 right-2 z-30 flex items-center gap-2">
+                {lastUpdated && (
+                    <span className="text-[10px] text-gray-500 font-mono">
+                        {lastUpdated.toLocaleTimeString('tr-TR')}
+                    </span>
+                )}
+                <button
+                    onClick={() => fetchData(false)}
+                    disabled={refreshing || loading}
+                    className={`
+                        flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                        bg-oracle-card border border-oracle-border
+                        text-xs font-medium transition-all
+                        ${refreshing || loading
+                            ? 'opacity-50 cursor-not-allowed text-gray-500'
+                            : 'hover:bg-oracle-accent/20 hover:border-oracle-accent/50 text-gray-300 hover:text-white'
+                        }
+                    `}
+                    title="Verileri yenile"
+                >
+                    <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                    <span>{refreshing ? 'Yenileniyor...' : 'Yenile'}</span>
+                </button>
+            </div>
+
             {/* 1. Heatmap Overlay (Background Layer) */}
             <div
                 ref={overlayRef}
@@ -413,7 +480,7 @@ export default function LiquidationChart() {
             >
                 <canvas
                     className="w-full h-full"
-                    style={{ filter: 'blur(3px)', opacity: 0.95 }}
+                    style={{ filter: 'blur(2px)', opacity: 1 }}
                 />
             </div>
 

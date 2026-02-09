@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, ReactNode } from 'react';
+import { useState, useRef, useEffect, ReactNode, useContext } from 'react';
 import {
     Brain,
     Send,
@@ -11,9 +11,21 @@ import {
     Zap,
     TrendingUp,
     Bitcoin,
-    HelpCircle
+    HelpCircle,
+    Trash2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+
+// Safe auth hook - returns null if not in AuthProvider
+function useSafeAuth() {
+    try {
+        // Dynamic import to avoid build-time issues
+        const { useAuth } = require('@/contexts/AuthContext');
+        return useAuth();
+    } catch {
+        return { user: null, session: null, loading: false };
+    }
+}
 
 interface ChatMessage {
     role: 'user' | 'assistant';
@@ -33,10 +45,12 @@ const SUGGESTED_PROMPTS = [
 ];
 
 export default function OracleChatPage() {
+    const { user } = useSafeAuth();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -44,6 +58,13 @@ export default function OracleChatPage() {
     useEffect(() => {
         checkAvailability();
     }, []);
+
+    // Load chat history when user is available
+    useEffect(() => {
+        if (user?.id) {
+            loadChatHistory();
+        }
+    }, [user?.id]);
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
@@ -60,6 +81,62 @@ export default function OracleChatPage() {
         }
     };
 
+    const loadChatHistory = async () => {
+        if (!user?.id) return;
+
+        setIsLoadingHistory(true);
+        try {
+            const response = await fetch(`${API_BASE}/api/chat/history/${user.id}`);
+            const data = await response.json();
+
+            if (data.messages && data.messages.length > 0) {
+                const loadedMessages: ChatMessage[] = data.messages.map((m: any) => ({
+                    role: m.role as 'user' | 'assistant',
+                    content: m.content,
+                    thinkingTime: m.thinking_time,
+                    timestamp: new Date(m.created_at)
+                }));
+                setMessages(loadedMessages);
+            }
+        } catch (error) {
+            console.error('Failed to load chat history:', error);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    };
+
+    const saveChatMessage = async (role: string, content: string, thinkingTime?: number) => {
+        if (!user?.id) return;
+
+        try {
+            await fetch(`${API_BASE}/api/chat/history`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: user.id,
+                    role,
+                    content,
+                    thinking_time: thinkingTime
+                })
+            });
+        } catch (error) {
+            console.error('Failed to save chat message:', error);
+        }
+    };
+
+    const clearChatHistory = async () => {
+        if (!user?.id) return;
+
+        try {
+            await fetch(`${API_BASE}/api/chat/history/${user.id}`, {
+                method: 'DELETE'
+            });
+            setMessages([]);
+        } catch (error) {
+            console.error('Failed to clear chat history:', error);
+        }
+    };
+
     const sendMessage = async (text: string) => {
         if (!text.trim() || isLoading) return;
 
@@ -72,6 +149,9 @@ export default function OracleChatPage() {
         setMessages(prev => [...prev, userMessage]);
         setInputValue('');
         setIsLoading(true);
+
+        // Save user message to DB
+        await saveChatMessage('user', text.trim());
 
         try {
             // Build history for context (exclude current message)
@@ -99,6 +179,9 @@ export default function OracleChatPage() {
             };
 
             setMessages(prev => [...prev, assistantMessage]);
+
+            // Save assistant message to DB
+            await saveChatMessage('assistant', data.response, data.thinking_time);
         } catch (error) {
             const errorMessage: ChatMessage = {
                 role: 'assistant',
@@ -135,7 +218,17 @@ export default function OracleChatPage() {
                     </h2>
                     <p className="text-xs text-gray-500">Kripto, hisse ve piyasa analizi için AI asistanınız</p>
                 </div>
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-3">
+                    {messages.length > 0 && user && (
+                        <button
+                            onClick={clearChatHistory}
+                            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-400 transition-colors"
+                            title="Sohbet geçmişini temizle"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Temizle
+                        </button>
+                    )}
                     {isAvailable === true && (
                         <span className="flex items-center gap-1.5 text-xs text-green-400">
                             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />

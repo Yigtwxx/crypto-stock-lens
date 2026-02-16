@@ -153,3 +153,51 @@ body {
   border: 1px solid rgba(245, 158, 11, 0.5);
   color: #f59e0b;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   REAL-TIME PRICE FLASH ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+@keyframes flash-green {
+  0% {
+    background-color: rgba(34, 197, 94, 0.4);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+@keyframes flash-red {
+  0% {
+    background-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.price-flash-up {
+  animation: flash-green 0.5s ease-out;
+}
+
+.price-flash-down {
+  animation: flash-red 0.5s ease-out;
+}
+
+/* Price cell transition for smooth updates */
+.price-cell {
+  transition: color 0.2s ease;
+}
+
+/* WebSocket connection indicator */
+.ws-connected {
+  color: #22c55e;
+}
+
+.ws-disconnected {
+  color: #ef4444;
+}

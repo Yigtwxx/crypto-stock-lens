@@ -1,8 +1,9 @@
 'use client';
 
-import { Coins, Globe, ArrowUp, ArrowDown } from 'lucide-react';
+import { Coins, Globe, ArrowUp, ArrowDown, Wifi, WifiOff } from 'lucide-react';
 import { MarketOverview } from '@/lib/api';
 import SparklineChart from './SparklineChart';
+import { useWebSocketPrices } from '@/hooks/useWebSocketPrices';
 import {
     getAssetLogo,
     getAssetName,
@@ -19,6 +20,20 @@ interface AssetTableProps {
 }
 
 export default function AssetTable({ marketData, marketType, isLoading }: AssetTableProps) {
+    // WebSocket for real-time crypto prices
+    const { prices: wsPrices, isConnected } = useWebSocketPrices({
+        enabled: marketType === 'crypto', // Only for crypto
+    });
+
+    // Helper to get real-time price if available
+    const getRealTimePrice = (symbol: string) => {
+        if (marketType !== 'crypto') return null;
+
+        // Normalize symbol (remove USDT suffix variations)
+        const normalizedSymbol = symbol.replace('USDT', '').replace('/', '').toUpperCase();
+        return wsPrices[normalizedSymbol];
+    };
+
     return (
         <div className="rounded-xl bg-oracle-card border border-oracle-border overflow-hidden">
             <div className="px-4 py-3 border-b border-oracle-border flex items-center justify-between">
@@ -28,9 +43,27 @@ export default function AssetTable({ marketData, marketType, isLoading }: AssetT
                         {marketType === 'nasdaq' ? 'Hisse Senedi Listesi' : 'Kripto Para Listesi'}
                     </h2>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <Globe className="w-3.5 h-3.5" />
-                    <span>{marketData?.active_cryptocurrencies?.toLocaleString() || '--'} {marketType === 'nasdaq' ? 'aktif hisse' : 'aktif kripto'}</span>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                    {/* WebSocket connection indicator for crypto */}
+                    {marketType === 'crypto' && (
+                        <div className={`flex items-center gap-1 ${isConnected ? 'text-green-400' : 'text-gray-500'}`}>
+                            {isConnected ? (
+                                <>
+                                    <Wifi className="w-3.5 h-3.5" />
+                                    <span className="live-indicator">Canlı</span>
+                                </>
+                            ) : (
+                                <>
+                                    <WifiOff className="w-3.5 h-3.5" />
+                                    <span>Bağlanıyor...</span>
+                                </>
+                            )}
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>{marketData?.active_cryptocurrencies?.toLocaleString() || '--'} {marketType === 'nasdaq' ? 'aktif hisse' : 'aktif kripto'}</span>
+                    </div>
                 </div>
             </div>
 
@@ -73,6 +106,11 @@ export default function AssetTable({ marketData, marketType, isLoading }: AssetT
                         const sparklineData = generateSparkline(coin.change_24h, coin.symbol);
                         const change7d = getSeeded7dChange(coin.change_24h, coin.symbol);
 
+                        // Get real-time price if available
+                        const rtPrice = getRealTimePrice(coin.symbol);
+                        const displayPrice = rtPrice?.price || coin.price;
+                        const flashClass = rtPrice?.flashClass || '';
+
                         return (
                             <div
                                 key={coin.symbol}
@@ -99,9 +137,9 @@ export default function AssetTable({ marketData, marketType, isLoading }: AssetT
                                     </div>
                                 </div>
 
-                                {/* Price */}
-                                <div className="flex items-center justify-end font-medium text-white">
-                                    {formatPrice(coin.price)}
+                                {/* Price with flash animation */}
+                                <div className={`flex items-center justify-end font-medium text-white rounded px-2 price-cell ${flashClass}`}>
+                                    {formatPrice(displayPrice)}
                                 </div>
 
                                 {/* 24h Change */}
@@ -141,3 +179,4 @@ export default function AssetTable({ marketData, marketType, isLoading }: AssetT
         </div>
     );
 }
+

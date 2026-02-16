@@ -13,6 +13,24 @@ from services.market_overview_service import _fetch_coin_metadata
 
 DATA_FILE = "data/watchlist.json"
 
+FALLBACK_LOGOS = {
+    "BTC": "https://assets.coingecko.com/coins/images/1/large/bitcoin.png",
+    "ETH": "https://assets.coingecko.com/coins/images/279/large/ethereum.png",
+    "SOL": "https://assets.coingecko.com/coins/images/4128/large/solana.png",
+    "BNB": "https://assets.coingecko.com/coins/images/825/large/binance-coin-logo.png",
+    "XRP": "https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png",
+    "DOGE": "https://assets.coingecko.com/coins/images/5/large/dogecoin.png",
+    "ADA": "https://assets.coingecko.com/coins/images/975/large/cardano.png",
+    "AVAX": "https://assets.coingecko.com/coins/images/12559/large/avalance-1.png",
+    "AAPL": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg",
+    "MSFT": "https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg",
+    "GOOGL": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg",
+    "NVDA": "https://upload.wikimedia.org/wikipedia/commons/2/21/Nvidia_logo.svg",
+    "TSLA": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Tesla_logo.png",
+    "AMZN": "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
+    "META": "https://upload.wikimedia.org/wikipedia/commons/7/7b/Meta_Platforms_Inc._logo.svg"
+}
+
 # In-memory cache for simple persistence
 def _load_db():
     if not os.path.exists(DATA_FILE):
@@ -20,7 +38,7 @@ def _load_db():
     try:
         with open(DATA_FILE, "r") as f:
             return json.load(f)
-    except:
+    except (json.JSONDecodeError, IOError):
         return []
 
 def _save_db(data):
@@ -149,6 +167,10 @@ async def _hydrate_prices(watchlists):
                     "logo": d["logo"],
                     "name": d["name"]
                 })
+            
+            # Apply fallback logo if missing (Stock)
+            if not obj["logo"] and sym in FALLBACK_LOGOS:
+                obj["logo"] = FALLBACK_LOGOS[sym]
             elif item["type"] == "CRYPTO":
                 # Handle crypto format
                 # Ensure symbol match (CoinGecko uses lowercase usually, we upper)
@@ -161,6 +183,10 @@ async def _hydrate_prices(watchlists):
                         "logo": d["logo"],
                         "name": d["name"]
                     })
+                
+                # Apply fallback logo if missing
+                if not obj["logo"] and c_sym in FALLBACK_LOGOS:
+                    obj["logo"] = FALLBACK_LOGOS[c_sym]
                 # If not found in top 250, maybe fetch single? (Skip for now for speed)
             
             hydrated_items.append(obj)

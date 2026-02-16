@@ -535,9 +535,9 @@ async def get_market_indices():
     
     async def fetch_index(client: httpx.AsyncClient, idx: dict) -> Optional[dict]:
         try:
-            # Use Yahoo Finance quote endpoint for more accurate real-time data
+            # Use v8 chart API (v7 quote API is deprecated/unauthorized)
             symbol = idx["symbol"]
-            url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
             headers = {
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
                 "Accept": "application/json"
@@ -546,13 +546,14 @@ async def get_market_indices():
             response = await client.get(url, headers=headers)
             if response.status_code == 200:
                 data = response.json()
-                quote_response = data.get("quoteResponse", {})
-                results = quote_response.get("result", [])
+                chart = data.get("chart", {})
+                results = chart.get("result", [])
                 
                 if results:
-                    quote = results[0]
-                    current_price = quote.get("regularMarketPrice", 0)
-                    change_percent = quote.get("regularMarketChangePercent", 0)
+                    meta = results[0].get("meta", {})
+                    current_price = meta.get("regularMarketPrice", 0)
+                    prev_close = meta.get("chartPreviousClose", 0) or meta.get("previousClose", 0) or current_price
+                    change_percent = ((current_price - prev_close) / prev_close * 100) if prev_close and current_price else 0
                     
                     return {
                         "symbol": idx["symbol"],

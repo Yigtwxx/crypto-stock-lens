@@ -120,21 +120,46 @@ class LiquidationService:
     async def _connect_and_listen(self):
         """Connect to Binance WebSocket and listen for liquidation events."""
         while self.running:
+            ws = None
             try:
-                async with websockets.connect(BINANCE_WS_URL) as ws:
-                    logger.info(f"Connected to Binance Liquidation Stream: {BINANCE_WS_URL}")
-                    
-                    while self.running:
-                        message = await ws.recv()
+                # Use ping_interval=None to disable automatic keepalive pings
+                # This prevents keepalive timeout errors on shutdown
+                ws = await websockets.connect(
+                    BINANCE_WS_URL,
+                    ping_interval=20,
+                    ping_timeout=10,
+                    close_timeout=5
+                )
+                logger.info(f"Connected to Binance Liquidation Stream: {BINANCE_WS_URL}")
+                
+                while self.running:
+                    try:
+                        message = await asyncio.wait_for(ws.recv(), timeout=30)
                         data = json.loads(message)
                         await self._process_message(data)
+                    except asyncio.TimeoutError:
+                        # No message received in 30s, just continue
+                        continue
+                    except asyncio.CancelledError:
+                        break
                         
+            except asyncio.CancelledError:
+                logger.info("WebSocket listener cancelled.")
+                break
             except websockets.exceptions.ConnectionClosed:
-                logger.warning("WebSocket connection closed. Reconnecting in 5s...")
-                await asyncio.sleep(5)
+                if self.running:
+                    logger.warning("WebSocket connection closed. Reconnecting in 5s...")
+                    await asyncio.sleep(5)
             except Exception as e:
-                logger.error(f"Error in liquidation listener: {e}")
-                await asyncio.sleep(5)
+                if self.running:
+                    logger.error(f"Error in liquidation listener: {e}")
+                    await asyncio.sleep(5)
+            finally:
+                if ws:
+                    try:
+                        await ws.close()
+                    except Exception:
+                        pass
 
     async def _process_message(self, data: dict):
         """Process incoming liquidation data."""
@@ -245,6 +270,108 @@ class LiquidationService:
             # Sort by timestamp
             history.sort(key=lambda x: x["timestamp"])
             return history
+
+    async def get_liquidation_levels(
+        self, 
+        symbol: str, 
+        price_min: float,
+        price_max: float,
+        num_bins: int = 100,
+        leverage: int = 50
+    ) -> Dict:
+        """
+        Get cumulative liquidation levels grouped by price bins.
+        Returns data for Coinglass-style heatmap visualization.
+        
+        Args:
+            symbol: Trading pair (e.g., "BTCUSDT")
+            price_min: Minimum price for binning
+            price_max: Maximum price for binning  
+            num_bins: Number of price bins (default 100)
+            leverage: Leverage assumption for liquidation levels (default 50x)
+            
+        Returns:
+            Dictionary with:
+            - levels: Array of {price, long_liq, short_liq, total}
+            - max_value: Maximum liquidation value (for normalization)
+            - bin_size: Size of each price bin
+        """
+        clean_symbol = symbol.split(':')[-1]
+        
+        # Calculate bin size
+        price_range = price_max - price_min
+        bin_size = price_range / num_bins
+        
+        if bin_size <= 0:
+            return {"levels": [], "max_value": 0, "bin_size": 0}
+        
+        # Initialize bins
+        bins = {}
+        for i in range(num_bins):
+            bin_price = price_min + (i + 0.5) * bin_size  # Use mid-point of bin
+            bins[i] = {
+                "price": round(bin_price, 2),
+                "long_liq": 0.0,
+                "short_liq": 0.0,
+                "total": 0.0
+            }
+        
+        async with self._lock:
+            # Process all liquidations for this symbol
+            for event in self.liquidations:
+                if event["symbol"] != clean_symbol:
+                    continue
+                    
+                liq_price = event["price"]
+                amount = event["amount_usd"]
+                side = event["side"]
+                
+                # For each liquidation, calculate where positions would be liquidated
+                # at different leverage levels
+                
+                # Original position entry price is estimated from liquidation price
+                # Long liquidation: entry = liq_price * (1 + 1/leverage)
+                # Short liquidation: entry = liq_price * (1 - 1/leverage)
+                
+                if side == "SELL":  # Long position liquidated
+                    # This was a long position, liquidated at liq_price
+                    # Entry was above: entry = liq_price * (1 + 1/leverage)
+                    entry_price = liq_price * (1 + 1/leverage)
+                    
+                    # The liquidation affects price levels around and below entry
+                    # Show liquidation accumulation at the actual liq_price level
+                    bin_index = int((liq_price - price_min) / bin_size)
+                    if 0 <= bin_index < num_bins:
+                        bins[bin_index]["long_liq"] += amount
+                        bins[bin_index]["total"] += amount
+                        
+                else:  # Short position liquidated (BUY)
+                    # This was a short position, liquidated at liq_price
+                    # Entry was below: entry = liq_price * (1 - 1/leverage)
+                    entry_price = liq_price * (1 - 1/leverage)
+                    
+                    bin_index = int((liq_price - price_min) / bin_size)
+                    if 0 <= bin_index < num_bins:
+                        bins[bin_index]["short_liq"] += amount
+                        bins[bin_index]["total"] += amount
+        
+        # Convert to list and find max value
+        levels = list(bins.values())
+        max_value = max((b["total"] for b in levels), default=0)
+        
+        # Filter out empty bins for efficiency
+        levels = [b for b in levels if b["total"] > 0]
+        
+        # Sort by price
+        levels.sort(key=lambda x: x["price"])
+        
+        return {
+            "levels": levels,
+            "max_value": round(max_value, 2),
+            "bin_size": round(bin_size, 2),
+            "price_min": round(price_min, 2),
+            "price_max": round(price_max, 2)
+        }
 
     async def fetch_candles(self, symbol: str, interval: str = '1h', limit: int = 168) -> List[Dict]:
         """

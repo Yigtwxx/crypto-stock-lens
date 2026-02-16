@@ -225,6 +225,33 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────
+# CLEANUP EXISTING PROCESSES
+# ─────────────────────────────────────────────────────────────────
+print_section "PORT CLEANUP"
+
+# Kill any existing process on port 8000 (Backend)
+PORT_8000_PID=$(lsof -ti:8000 2>/dev/null)
+if [ ! -z "$PORT_8000_PID" ]; then
+    print_status "warning" "Port 8000 in use (PID: $PORT_8000_PID) - stopping..."
+    kill -9 $PORT_8000_PID 2>/dev/null
+    sleep 1
+    print_status "success" "Port 8000 freed"
+else
+    print_status "success" "Port 8000 available"
+fi
+
+# Kill any existing process on port 3000 (Frontend)
+PORT_3000_PID=$(lsof -ti:3000 2>/dev/null)
+if [ ! -z "$PORT_3000_PID" ]; then
+    print_status "warning" "Port 3000 in use (PID: $PORT_3000_PID) - stopping..."
+    kill -9 $PORT_3000_PID 2>/dev/null
+    sleep 1
+    print_status "success" "Port 3000 freed"
+else
+    print_status "success" "Port 3000 available"
+fi
+
+# ─────────────────────────────────────────────────────────────────
 # STARTING SERVICES
 # ─────────────────────────────────────────────────────────────────
 print_section "STARTING SERVICES"
@@ -258,6 +285,39 @@ if kill -0 $FRONTEND_PID 2>/dev/null; then
 else
     print_status "error" "Frontend failed to start!"
     exit 1
+fi
+
+# ─────────────────────────────────────────────────────────────────
+# RAG 2.0 INITIALIZATION
+# ─────────────────────────────────────────────────────────────────
+print_section "RAG 2.0 INITIALIZATION"
+
+print_status "info" "RAG 2.0 tarihi verileri yükleniyor..."
+print_status "wait" "Bu işlem biraz zaman alabilir (BTC, ETH, SOL için 365 günlük veri)"
+
+# Wait for backend to be fully ready
+sleep 3
+
+# Initialize RAG 2.0 via API endpoint
+RAG_INIT_RESPONSE=$(curl -s -X POST http://localhost:8000/api/rag/initialize 2>/dev/null)
+
+# Check response
+if echo "$RAG_INIT_RESPONSE" | grep -q '"success":true' 2>/dev/null; then
+    # Extract stats from response
+    EVENTS=$(echo "$RAG_INIT_RESPONSE" | grep -o '"events_indexed":[0-9]*' | grep -o '[0-9]*')
+    PRICES=$(echo "$RAG_INIT_RESPONSE" | grep -o '"prices_indexed":[0-9]*' | grep -o '[0-9]*')
+    print_status "success" "RAG 2.0 initialized"
+    print_status "info" "  ├─ Market Events indexed: ${EVENTS:-0}"
+    print_status "info" "  └─ Price History indexed: ${PRICES:-0}"
+else
+    # Check if already initialized by comparing stats
+    RAG_STATS=$(curl -s http://localhost:8000/api/rag/stats 2>/dev/null)
+    if echo "$RAG_STATS" | grep -q '"status":"healthy"' 2>/dev/null; then
+        print_status "success" "RAG 2.0 already initialized ${GRAY}(cached)${NC}"
+    else
+        print_status "warning" "RAG 2.0 initialization may need manual trigger"
+        print_status "info" "  Run: curl -X POST http://localhost:8000/api/rag/initialize"
+    fi
 fi
 
 # ─────────────────────────────────────────────────────────────────

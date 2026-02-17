@@ -216,9 +216,13 @@ export const getSeeded7dChange = (change24h: number, symbol: string): number => 
 // Formatters
 export const formatPrice = (price: number) => {
     if (price >= 1000) {
-        return `$${price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+        return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
-    return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (price >= 1) {
+        return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    // For very small prices (e.g. SHIB, PEPE), show more decimals
+    return `$${price.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}`;
 };
 
 export const formatLargeNumber = (num: number) => {

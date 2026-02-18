@@ -83,6 +83,90 @@ CRYPTO_ALIASES = {
     "pi": "PI",
     "pi network": "PI",
     "pi coin": "PI",
+    
+    # Meme Coins (2024-2025 Cycle)
+    "pepe": "PEPE",
+    "pepecoin": "PEPE",
+    "dogwifhat": "WIF",
+    "wif": "WIF",
+    "bonk": "BONK",
+    "floki": "FLOKI",
+    "floki inu": "FLOKI",
+    "popcat": "POPCAT",
+    "brett": "BRETT",
+    "mog": "MOG",
+    "mog coin": "MOG",
+    "mew": "MEW",
+    "cat in a dogs world": "MEW",
+    "bome": "BOME",
+    "book of meme": "BOME",
+    "turbo": "TURBO",
+    "wen": "WEN",
+    "coq": "COQ",
+    "coq inu": "COQ",
+    
+    # AI Coins
+    "render": "RNDR",
+    "rndr": "RNDR",
+    "fetch.ai": "FET",
+    "fet": "FET",
+    "singularitynet": "AGIX",
+    "agix": "AGIX",
+    "worldcoin": "WLD",
+    "wld": "WLD",
+    "bittensor": "TAO",
+    "tao": "TAO",
+    "arkham": "ARKM",
+    "arkm": "ARKM",
+    "akash": "AKT",
+    "akt": "AKT",
+    
+    # Layer 1/2 & Infrastructure
+    "celestia": "TIA",
+    "tia": "TIA",
+    "sei": "SEI",
+    "injective": "INJ",
+    "inj": "INJ",
+    "sui": "SUI",
+    "aptos": "APT",
+    "apt": "APT",
+    "arbitrum": "ARB",
+    "arb": "ARB",
+    "optimism": "OP",
+    "op": "OP",
+    "ton": "TON",
+    "toncoin": "TON",
+    "kaspa": "KAS",
+    "kas": "KAS",
+    "mantle": "MNT",
+    "mnt": "MNT",
+    "starknet": "STRK",
+    "strk": "STRK",
+    
+    # DeFi & Ecosystem
+    "upiter": "JUP",
+    "jup": "JUP",
+    "pyth": "PYTH",
+    "pyth network": "PYTH",
+    "ethena": "ENA",
+    "ena": "ENA",
+    "ondo": "ONDO",
+    "ondo finance": "ONDO",
+    "lidodao": "LDO",
+    "ldo": "LDO",
+    "pendle": "PENDLE",
+    
+    # Gaming/Metaverse
+    "ronin": "RON",
+    "ron": "RON",
+    "gala": "GALA",
+    "sandbox": "SAND",
+    "sand": "SAND",
+    "decentraland": "MANA",
+    "mana": "MANA",
+    "beam": "BEAM",
+    "notcoin": "NOT",
+    "not": "NOT",
 }
 
 # Stock company names and tickers
@@ -179,8 +263,90 @@ STOCK_MAPPINGS = {
     "qualcomm": ("QCOM", "NASDAQ"),
     "qcom": ("QCOM", "NASDAQ"),
     "asml": ("ASML", "NASDAQ"),
-    "micron": ("MU", "NASDAQ"),
+    "micron": "MU",
     "mu": ("MU", "NASDAQ"),
+    "arm": ("ARM", "NASDAQ"),
+    "arm holdings": ("ARM", "NASDAQ"),
+    "super micro": ("SMCI", "NASDAQ"),
+    "smci": ("SMCI", "NASDAQ"),
+    "dell": ("DELL", "NYSE"),
+    
+    # Cybersecurity & Enterprise Software
+    "palantir": ("PLTR", "NASDAQ"),
+    "pltr": ("PLTR", "NASDAQ"),
+    "crowdstrike": ("CRWD", "NASDAQ"),
+    "crwd": ("CRWD", "NASDAQ"),
+    "salesforce": ("CRM", "NYSE"),
+    "crm": ("CRM", "NYSE"),
+    "oracle": ("ORCL", "NYSE"),
+    "orcl": ("ORCL", "NYSE"),
+    "servicenow": ("NOW", "NYSE"),
+    "now": ("NOW", "NYSE"),
+    "snowflake": ("SNOW", "NYSE"),
+    "snow": ("SNOW", "NYSE"),
+    "autodesk": ("ADSK", "NASDAQ"),
+    "adsk": ("ADSK", "NASDAQ"),
+
+    # Crypto-Adjacent Stocks
+    "coinbase": ("COIN", "NASDAQ"),
+    "coin": ("COIN", "NASDAQ"),
+    "microstrategy": ("MSTR", "NASDAQ"),
+    "mstr": ("MSTR", "NASDAQ"),
+    "marathon digital": ("MARA", "NASDAQ"),
+    "mara": ("MARA", "NASDAQ"),
+    "riot platforms": ("RIOT", "NASDAQ"),
+    "riot": ("RIOT", "NASDAQ"),
+    "cleanspark": ("CLSK", "NASDAQ"),
+    "clsk": ("CLSK", "NASDAQ"),
+    "blackrock": ("BLK", "NYSE"),
+    "blk": ("BLK", "NYSE"),
+    
+    # EV & Auto
+    "rivian": ("RIVN", "NASDAQ"),
+    "rivn": ("RIVN", "NASDAQ"),
+    "lucid": ("LCID", "NASDAQ"),
+    "lcid": ("LCID", "NASDAQ"),
+    "nio": ("NIO", "NYSE"),
+    "ford": ("F", "NYSE"),
+    "general motors": ("GM", "NYSE"),
+    "gm": ("GM", "NYSE"),
+    
+    # Fintech & Payments
+    "block": ("SQ", "NYSE"),
+    "square": ("SQ", "NYSE"),
+    "sq": ("SQ", "NYSE"),
+    "sofi": ("SOFI", "NASDAQ"),
+    "american express": ("AXP", "NYSE"),
+    "axp": ("AXP", "NYSE"),
+    "robinhood": ("HOOD", "NASDAQ"),
+    "hood": ("HOOD", "NASDAQ"),
+    
+    # Retail & E-commerce
+    "shopify": ("SHOP", "NYSE"),
+    "shop": ("SHOP", "NYSE"),
+    "uber": ("UBER", "NYSE"),
+    "airbnb": ("ABNB", "NASDAQ"),
+    "abnb": ("ABNB", "NASDAQ"),
+    "booking": ("BKNG", "NASDAQ"),
+    "bkng": ("BKNG", "NASDAQ"),
+    
+    # Biotech & Health
+    "eli lilly": ("LLY", "NYSE"),
+    "lly": ("LLY", "NYSE"),
+    "novo nordisk": ("NVO", "NYSE"),
+    "nvo": ("NVO", "NYSE"),
+    "viking therapeutics": ("VKTX", "NASDAQ"),
+    "vktx": ("VKTX", "NASDAQ"),
+    
+    # Energy & Industrial
+    "plug power": ("PLUG", "NASDAQ"),
+    "plug": ("PLUG", "NASDAQ"),
+    "first solar": ("FSLR", "NASDAQ"),
+    "fslr": ("FSLR", "NASDAQ"),
+    "ge": ("GE", "NYSE"),
+    "general electric": ("GE", "NYSE"),
+    "caterpillar": ("CAT", "NYSE"),
+    "cat": ("CAT", "NYSE"),
 }
 
 
@@ -410,7 +576,9 @@ async def detect_symbol_smart(
     # Strategy 3: Check aliases
     for alias, symbol in CRYPTO_ALIASES.items():
         if len(alias) >= 3:  # Skip very short aliases
-            if alias in combined_lower:
+            # Use regex for word boundary matching
+            alias_pattern = r'\b' + re.escape(alias) + r'\b'
+            if re.search(alias_pattern, combined_lower):
                 score = calculate_match_score(combined_lower, title_lower, alias, "alias", alias in title_lower)
                 
                 if symbol == "PI":
@@ -429,13 +597,16 @@ async def detect_symbol_smart(
     # Strategy 4: Check stock mappings
     if asset_type == "stock":
         for name, (ticker, exchange) in STOCK_MAPPINGS.items():
-            if len(name) >= 3 and name in combined_lower:
-                score = calculate_match_score(combined_lower, title_lower, name, "name", name in title_lower)
-                matches.append(SymbolMatch(
-                    symbol=f"{exchange}:{ticker}",
-                    score=score,
-                    match_type="name"
-                ))
+            if len(name) >= 3:
+                # Use regex for word boundary matching
+                name_pattern = r'\b' + re.escape(name) + r'\b'
+                if re.search(name_pattern, combined_lower):
+                    score = calculate_match_score(combined_lower, title_lower, name, "name", name in title_lower)
+                    matches.append(SymbolMatch(
+                        symbol=f"{exchange}:{ticker}",
+                        score=score,
+                        match_type="name"
+                    ))
     
     # Select best match by score
     if matches:

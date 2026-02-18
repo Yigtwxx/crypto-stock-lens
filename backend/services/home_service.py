@@ -415,8 +415,8 @@ async def _fetch_exchange_flows(client: httpx.AsyncClient) -> Dict[str, float]:
             # Fetch max limit (1000) to get a decent time sample
             response = await client.get(
                 "https://api.binance.com/api/v3/aggTrades",
-                params={"symbol": symbol, "limit": 1000},
-                timeout=5.0
+                params={"symbol": symbol, "limit": 1500},
+                timeout=8.0
             )
             if response.status_code == 200:
                 trades = response.json()

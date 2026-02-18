@@ -36,7 +36,7 @@ CRYPTO_ALIASES = {
     "ripple": "XRP",
     "xrp": "XRP",
     "cardano": "ADA",
-    "ada": "ADA",
+    "ADA": "ADA",
     "dogecoin": "DOGE",
     "doge": "DOGE",
     "polkadot": "DOT",

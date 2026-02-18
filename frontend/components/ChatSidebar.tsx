@@ -35,19 +35,19 @@ export default function ChatSidebar({
 
     useEffect(() => {
         const groups: { [key: string]: ChatSession[] } = {
-            'Bugün': [],
-            'Dün': [],
-            'Önceki 7 Gün': []
+            'Today': [],
+            'Yesterday': [],
+            'Last 7 Days': []
         };
 
         sessions.forEach(session => {
             const date = parseISO(session.updated_at);
             if (isToday(date)) {
-                groups['Bugün'].push(session);
+                groups['Today'].push(session);
             } else if (isYesterday(date)) {
-                groups['Dün'].push(session);
+                groups['Yesterday'].push(session);
             } else {
-                groups['Önceki 7 Gün'].push(session);
+                groups['Last 7 Days'].push(session);
             }
         });
 

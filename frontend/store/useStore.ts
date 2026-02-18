@@ -76,6 +76,13 @@ interface OracleStore {
     removeAlert: (id: string) => void;
     triggerAlert: (id: string) => void;
     toggleAlertModal: (open: boolean) => void;
+    // User Settings
+    settings: {
+        theme: 'dark' | 'light' | 'system';
+        language: 'en' | 'tr';
+    };
+    setTheme: (theme: 'dark' | 'light' | 'system') => void;
+    setLanguage: (lang: 'en' | 'tr') => void;
 }
 
 export const useStore = create<OracleStore>()(
@@ -91,6 +98,10 @@ export const useStore = create<OracleStore>()(
             currentPrice: null,
             priceAlerts: [],
             isAlertModalOpen: false,
+            settings: {
+                theme: 'dark',
+                language: 'en',
+            },
 
             // Actions - setNewsItems with guaranteed sorted order
             setNewsItems: (items) => {
@@ -157,10 +168,22 @@ export const useStore = create<OracleStore>()(
             },
 
             toggleAlertModal: (open) => set({ isAlertModalOpen: open }),
+
+            // Settings Actions
+            setTheme: (theme) => set((state) => ({
+                settings: { ...state.settings, theme }
+            })),
+
+            setLanguage: (language) => set((state) => ({
+                settings: { ...state.settings, language }
+            })),
         }),
         {
             name: 'oracle-x-storage',
-            partialize: (state) => ({ priceAlerts: state.priceAlerts }),
+            partialize: (state) => ({
+                priceAlerts: state.priceAlerts,
+                settings: state.settings
+            }),
         }
     )
 );

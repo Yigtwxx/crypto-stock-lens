@@ -23,6 +23,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     history: Optional[List[ChatMessage]] = None
+    session_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -31,8 +32,21 @@ class ChatResponse(BaseModel):
 class SaveChatMessageRequest(BaseModel):
     user_id: str
     role: str
+    user_id: str
+    role: str
     content: str
+    session_id: Optional[str] = None
     thinking_time: Optional[float] = None
+
+
+class CreateSessionRequest(BaseModel):
+    user_id: str
+    title: Optional[str] = "New Chat"
+
+
+class UpdateSessionRequest(BaseModel):
+    user_id: str
+    title: str
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -60,6 +74,12 @@ async def oracle_chat(request: ChatRequest):
     
     result = await chat_with_oracle(request.message, history)
     
+    # Update session title if it's the first message and creating a new session
+    # This logic handles auto-titling (simplified for now)
+    if request.session_id and len(history or []) == 0:
+        # TODO: Generate title from message
+        pass
+        
     log_success(f"Response generated in {result['thinking_time']}s")
     log_info(f"Response length: {len(result['response'])} characters")
     print(f"{Colors.PURPLE}{'═'*60}{Colors.END}\n")
@@ -82,7 +102,71 @@ async def chat_status():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CHAT HISTORY ENDPOINTS (Database Persistence)
+# CHAT SESSION ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/api/chat/sessions/{user_id}")
+async def get_user_sessions_endpoint(user_id: str):
+    """Get all chat sessions for user."""
+    try:
+        from services.supabase_service import get_user_sessions
+        sessions = await get_user_sessions(user_id)
+        return {"sessions": sessions}
+    except Exception as e:
+        print(f"Error getting sessions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/chat/sessions")
+async def create_session_endpoint(request: CreateSessionRequest):
+    """Create a new chat session."""
+    try:
+        from services.supabase_service import create_chat_session
+        session = await create_chat_session(request.user_id, request.title)
+        return session
+    except Exception as e:
+        print(f"Error creating session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/api/chat/sessions/{session_id}")
+async def update_session_endpoint(session_id: str, request: UpdateSessionRequest):
+    """Update chat session title."""
+    try:
+        from services.supabase_service import update_session_title
+        success = await update_session_title(session_id, request.title, request.user_id)
+        return {"success": success}
+    except Exception as e:
+        print(f"Error updating session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/api/chat/sessions/{session_id}")
+async def delete_session_endpoint(session_id: str, user_id: str):
+    """Delete a chat session."""
+    try:
+        from services.supabase_service import delete_chat_session
+        success = await delete_chat_session(session_id, user_id)
+        return {"success": success}
+    except Exception as e:
+        print(f"Error deleting session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/chat/sessions/{session_id}/messages")
+async def get_session_messages_endpoint(session_id: str):
+    """Get messages for a specific session."""
+    try:
+        from services.supabase_service import get_session_messages
+        messages = await get_session_messages(session_id)
+        return {"messages": messages}
+    except Exception as e:
+        print(f"Error getting session messages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHAT HISTORY ENDPOINTS (Legacy / Direct Message)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/api/chat/history/{user_id}")
@@ -109,6 +193,7 @@ async def save_chat_message_endpoint(request: SaveChatMessageRequest):
             user_id=request.user_id,
             role=request.role,
             content=request.content,
+            session_id=request.session_id,
             thinking_time=request.thinking_time
         )
         return {"success": True, "message": result}

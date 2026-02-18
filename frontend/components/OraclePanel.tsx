@@ -60,6 +60,37 @@ export default function OraclePanel() {
         }
     };
 
+    const getTheme = (sentiment: string) => {
+        switch (sentiment) {
+            case 'bullish':
+                return {
+                    text: 'text-oracle-bullish',
+                    border: 'border-oracle-bullish/30',
+                    bg: 'bg-oracle-bullish/10',
+                    icon: 'text-oracle-bullish',
+                    glow: 'glow-bullish'
+                };
+            case 'bearish':
+                return {
+                    text: 'text-oracle-bearish',
+                    border: 'border-oracle-bearish/30',
+                    bg: 'bg-oracle-bearish/10',
+                    icon: 'text-oracle-bearish',
+                    glow: 'glow-bearish'
+                };
+            default:
+                return {
+                    text: 'text-oracle-neutral',
+                    border: 'border-oracle-neutral/30',
+                    bg: 'bg-oracle-neutral/10',
+                    icon: 'text-oracle-neutral',
+                    glow: ''
+                };
+        }
+    };
+
+    const theme = analysis ? getTheme(analysis.sentiment) : getTheme('neutral');
+
     return (
         <div className="flex flex-col h-full">
             {/* Header - Fixed height to align with other panels */}
@@ -70,7 +101,7 @@ export default function OraclePanel() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                 {!selectedNews ? (
                     // Empty State
                     <div className="h-full flex flex-col items-center justify-center text-center px-6">
@@ -106,14 +137,9 @@ export default function OraclePanel() {
                         </div>
 
                         {/* Sentiment Card */}
-                        <div className={`p-4 rounded-xl border ${analysis.sentiment === 'bullish'
-                            ? 'bg-oracle-bullish/10 border-oracle-bullish/30 glow-bullish'
-                            : analysis.sentiment === 'bearish'
-                                ? 'bg-oracle-bearish/10 border-oracle-bearish/30 glow-bearish'
-                                : 'bg-oracle-neutral/10 border-oracle-neutral/30'
-                            }`}>
+                        <div className={`p-4 rounded-xl border ${theme.bg} ${theme.border} ${theme.glow}`}>
                             <div className="flex items-center justify-between mb-3">
-                                <div className={`flex items-center gap-2 ${getSentimentColor(analysis.sentiment)}`}>
+                                <div className={`flex items-center gap-2 ${theme.text}`}>
                                     {getSentimentIcon(analysis.sentiment)}
                                     <span className="text-lg font-bold capitalize">{analysis.sentiment}</span>
                                 </div>
@@ -124,10 +150,10 @@ export default function OraclePanel() {
                         </div>
 
                         {/* Reasoning */}
-                        <div className="p-4 rounded-xl bg-oracle-card border border-oracle-border">
+                        <div className={`p-4 rounded-xl bg-oracle-card border border-oracle-border`}>
                             <div className="flex items-center gap-2 mb-3">
-                                <Target className="w-4 h-4 text-cyan" />
-                                <h4 className="font-medium text-cyan">Analysis</h4>
+                                <Target className={`w-4 h-4 ${theme.icon}`} />
+                                <h4 className={`font-medium ${theme.text}`}>Analysis</h4>
                             </div>
                             <p className="text-sm text-gray-300 leading-relaxed">
                                 {analysis.reasoning}
@@ -135,21 +161,22 @@ export default function OraclePanel() {
                         </div>
 
                         {/* Historical Context */}
-                        <div className="p-4 rounded-xl bg-oracle-card border border-oracle-border">
+                        <div className={`p-4 rounded-xl bg-oracle-card border border-oracle-border`}>
                             <div className="flex items-center gap-2 mb-3">
-                                <History className="w-4 h-4 text-amber" />
-                                <h4 className="font-medium text-amber">Historical Context</h4>
+                                <History className={`w-4 h-4 ${theme.icon}`} />
+                                <h4 className={`font-medium ${theme.text}`}>Historical Context</h4>
                             </div>
                             <p className="text-sm text-gray-300 leading-relaxed">
                                 {analysis.historical_context}
                             </p>
                         </div>
+
                         {/* Technical Analysis */}
                         {analysis.technical_signals && (
-                            <div className="p-4 rounded-xl bg-oracle-card border border-oracle-border">
+                            <div className={`p-4 rounded-xl bg-oracle-card border border-oracle-border`}>
                                 <div className="flex items-center gap-2 mb-3">
-                                    <Activity className="w-4 h-4 text-cyan" />
-                                    <h4 className="font-medium text-cyan">Technical Analysis</h4>
+                                    <Activity className={`w-4 h-4 ${theme.icon}`} />
+                                    <h4 className={`font-medium ${theme.text}`}>Technical Analysis</h4>
                                 </div>
                                 <div className="space-y-3">
                                     {/* RSI */}
@@ -186,7 +213,7 @@ export default function OraclePanel() {
                                     {analysis.technical_signals.target_price && (
                                         <div className="mt-2 pt-2 border-t border-white/5">
                                             <span className="text-xs text-gray-500 block mb-1">Target Price</span>
-                                            <span className="text-oracle-bullish font-mono font-bold">
+                                            <span className={`font-mono font-bold ${theme.text}`}>
                                                 {analysis.technical_signals.target_price}
                                             </span>
                                         </div>
@@ -194,11 +221,12 @@ export default function OraclePanel() {
                                 </div>
                             </div>
                         )}
+
                         {/* Trading Signals - Multi Timeframe */}
-                        <div className="p-4 rounded-xl bg-oracle-card border border-oracle-border">
+                        <div className={`p-4 rounded-xl bg-oracle-card border border-oracle-border`}>
                             <div className="flex items-center gap-2 mb-4">
-                                <TrendingUp className="w-4 h-4 text-pink" />
-                                <h4 className="font-medium text-pink">Trading Signals</h4>
+                                <TrendingUp className={`w-4 h-4 ${theme.icon}`} />
+                                <h4 className={`font-medium ${theme.text}`}>Trading Signals</h4>
                             </div>
 
                             <div className="space-y-3">

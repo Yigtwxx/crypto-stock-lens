@@ -75,6 +75,7 @@ CRYPTO_ALIASES = {
     "monero": "XMR",
     "xmr": "XMR",
     "binance coin": "BNB",
+    "BNB": "BNB",
     "bnb": "BNB",
     "tether": "USDT",
     "usdt": "USDT",

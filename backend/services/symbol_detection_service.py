@@ -23,6 +23,18 @@ class SymbolMatch:
     match_type: str  # 'name', 'ticker', 'pattern', 'alias'
 
 
+# Coins that should default to OKX (usually due to lack of Spot on Binance or user preference)
+OKX_PREFERRED_TOKENS = {
+    "PI", 
+    "POPCAT", 
+    "BRETT", 
+    "MOG", 
+    "MEW", 
+    "WEN", 
+    "COQ"
+}
+
+
 # Extended crypto aliases for Turkish and common variations
 CRYPTO_ALIASES = {
     "bitcoin": "BTC",
@@ -508,9 +520,9 @@ async def detect_symbol_smart(
             score = calculate_match_score(combined_lower, title_lower, symbol, match_type, symbol.lower() in title_lower)
             
             # Determine exchange
-            if final_symbol == "PI":
+            if final_symbol in OKX_PREFERRED_TOKENS:
                 exchange = "OKX"
-                pair = "PIUSDT"
+                pair = f"{final_symbol}USDT"
             else:
                 exchange = "BINANCE"
                 pair = f"{final_symbol}USDT"
@@ -541,9 +553,9 @@ async def detect_symbol_smart(
                 score = calculate_match_score(combined_lower, title_lower, coin["name"], "name", coin["name"] in title_lower)
                 
                 symbol = coin["symbol"]
-                if symbol == "PI":
+                if symbol in OKX_PREFERRED_TOKENS:
                     exchange = "OKX"
-                    pair = "PIUSDT"
+                    pair = f"{symbol}USDT"
                 else:
                     exchange = "BINANCE"
                     pair = f"{symbol}USDT"
@@ -560,9 +572,9 @@ async def detect_symbol_smart(
                 score = calculate_match_score(combined_lower, title_lower, coin["symbol"], "ticker", coin["symbol"].lower() in title_lower)
                 
                 symbol = coin["symbol"]
-                if symbol == "PI":
+                if symbol in OKX_PREFERRED_TOKENS:
                     exchange = "OKX"
-                    pair = "PIUSDT"
+                    pair = f"{symbol}USDT"
                 else:
                     exchange = "BINANCE"
                     pair = f"{symbol}USDT"
@@ -581,9 +593,9 @@ async def detect_symbol_smart(
             if re.search(alias_pattern, combined_lower):
                 score = calculate_match_score(combined_lower, title_lower, alias, "alias", alias in title_lower)
                 
-                if symbol == "PI":
+                if symbol in OKX_PREFERRED_TOKENS:
                     exchange = "OKX"
-                    pair = "PIUSDT"
+                    pair = f"{symbol}USDT"
                 else:
                     exchange = "BINANCE"
                     pair = f"{symbol}USDT"

@@ -123,11 +123,15 @@ async def _hydrate_prices(watchlists):
                     "https://api.coingecko.com/api/v3/coins/markets",
                     params={
                         "vs_currency": "usd",
-                        "ids": "", # Empty returns top 100
-                        "per_page": 250, 
-                        "sparkline": False
+                        "per_page": 250,
+                        "sparkline": "false",
+                        "order": "market_cap_desc"
                     },
-                    timeout=10
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                        "Accept": "application/json"
+                    },
+                    timeout=15
                 )
                 if response.status_code == 200:
                     coins = response.json()
@@ -135,12 +139,14 @@ async def _hydrate_prices(watchlists):
                         sym = coin["symbol"].upper()
                         if sym in unique_cryptos:
                             crypto_data[sym] = {
-                                "price": coin["current_price"],
-                                "change_24h": coin["price_change_percentage_24h"],
-                                "market_cap": coin["market_cap"],
-                                "logo": coin["image"],
-                                "name": coin["name"]
+                                "price": coin.get("current_price", 0) or 0,
+                                "change_24h": coin.get("price_change_percentage_24h", 0) or 0,
+                                "market_cap": coin.get("market_cap", 0) or 0,
+                                "logo": coin.get("image", ""),
+                                "name": coin.get("name", sym)
                             }
+                else:
+                    print(f"Watchlist crypto fetch failed with status: {response.status_code}")
             except Exception as e:
                 print(f"Watchlist crypto fetch error: {e}")
 
@@ -159,21 +165,20 @@ async def _hydrate_prices(watchlists):
                 "name": sym
             }
             
-            if item["type"] == "STOCK" and sym in stock_data:
-                d = stock_data[sym]
-                obj.update({
-                    "price": d["price"],
-                    "change_24h": d["change_24h"],
-                    "logo": d["logo"],
-                    "name": d["name"]
-                })
+            if item["type"] == "STOCK":
+                if sym in stock_data:
+                    d = stock_data[sym]
+                    obj.update({
+                        "price": d["price"],
+                        "change_24h": d["change_24h"],
+                        "logo": d.get("logo", ""),
+                        "name": d.get("name", sym)
+                    })
+                # Apply fallback logo if missing
+                if not obj["logo"] and sym in FALLBACK_LOGOS:
+                    obj["logo"] = FALLBACK_LOGOS[sym]
             
-            # Apply fallback logo if missing (Stock)
-            if not obj["logo"] and sym in FALLBACK_LOGOS:
-                obj["logo"] = FALLBACK_LOGOS[sym]
             elif item["type"] == "CRYPTO":
-                # Handle crypto format
-                # Ensure symbol match (CoinGecko uses lowercase usually, we upper)
                 c_sym = sym.upper()
                 if c_sym in crypto_data:
                     d = crypto_data[c_sym]
@@ -183,11 +188,9 @@ async def _hydrate_prices(watchlists):
                         "logo": d["logo"],
                         "name": d["name"]
                     })
-                
                 # Apply fallback logo if missing
                 if not obj["logo"] and c_sym in FALLBACK_LOGOS:
                     obj["logo"] = FALLBACK_LOGOS[c_sym]
-                # If not found in top 250, maybe fetch single? (Skip for now for speed)
             
             hydrated_items.append(obj)
         

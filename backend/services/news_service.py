@@ -604,7 +604,6 @@ async def fetch_seeking_alpha_rss() -> List[NewsItem]:
     return items
 
 
-
 async def fetch_koinbulteni_rss() -> List[NewsItem]:
     """
     Fetch Turkish crypto news from Koin Bülteni RSS (free).

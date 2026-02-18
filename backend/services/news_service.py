@@ -12,6 +12,7 @@ import feedparser
 from email.utils import parsedate_to_datetime
 
 from models.schemas import NewsItem
+from services.symbol_detection_service import detect_symbol_smart
 
 
 def parse_feed_date(entry) -> datetime:
@@ -400,8 +401,8 @@ async def fetch_cryptocompare_news() -> List[NewsItem]:
                     title = news.get("title", "")
                     body = news.get("body", "")
                     
-                    # Detect crypto symbol from title/body
-                    symbol = detect_symbol(body, "crypto", title)
+                    # Detect crypto symbol from title/body using smart detection
+                    symbol = await detect_symbol_smart(body, title, "crypto")
                     
                     # CryptoCompare returns UTC timestamp, convert to local time (UTC+3)
                     pub_timestamp = news.get("published_on", datetime.now().timestamp())
@@ -445,7 +446,7 @@ async def fetch_coindesk_rss() -> List[NewsItem]:
             # Clean HTML from summary
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(summary, "crypto", title)
+            symbol = await detect_symbol_smart(summary, title, "crypto")
             
             pub_date = parse_feed_date(entry)
             
@@ -480,7 +481,7 @@ async def fetch_cointelegraph_rss() -> List[NewsItem]:
             # Clean HTML from summary
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(summary, "crypto", title)
+            symbol = await detect_symbol_smart(summary, title, "crypto")
             
             pub_date = parse_feed_date(entry)
             
@@ -516,7 +517,7 @@ async def fetch_marketwatch_rss() -> List[NewsItem]:
             # Clean HTML
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(summary, "stock", title)
+            symbol = await detect_symbol_smart(summary, title, "stock")
             pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
@@ -550,7 +551,7 @@ async def fetch_investing_rss() -> List[NewsItem]:
             # Clean HTML
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(summary, "stock", title)
+            symbol = await detect_symbol_smart(summary, title, "stock")
             pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
@@ -584,7 +585,7 @@ async def fetch_seeking_alpha_rss() -> List[NewsItem]:
             # Clean HTML
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(summary, "stock", title)
+            symbol = await detect_symbol_smart(summary, title, "stock")
             pub_date = parse_feed_date(entry)
             
             items.append(NewsItem(
@@ -603,85 +604,6 @@ async def fetch_seeking_alpha_rss() -> List[NewsItem]:
     return items
 
 
-async def fetch_bloomberght_rss() -> List[NewsItem]:
-    """
-    Fetch Turkish finance news from BloombergHT RSS (free).
-    """
-    items = []
-    try:
-        feed = feedparser.parse("https://www.bloomberght.com/rss")
-        
-        for entry in feed.entries[:10]:
-            title = entry.get("title", "")
-            summary = entry.get("description", "")
-            
-            # Clean HTML and CDATA
-            title = re.sub(r'<!\[CDATA\[|\]\]>', '', title).strip()
-            summary = re.sub(r'<!\[CDATA\[|\]\]>', '', summary)
-            summary = re.sub(r'<[^>]+>', '', summary).strip()
-            
-            # Detect if it's crypto or stock related
-            crypto_keywords = ["bitcoin", "btc", "ethereum", "eth", "kripto", "coin", "altcoin"]
-            is_crypto = any(kw in title.lower() or kw in summary.lower() for kw in crypto_keywords)
-            asset_type = "crypto" if is_crypto else "stock"
-            symbol = detect_symbol(summary, asset_type, title)
-            
-            pub_date = parse_feed_date(entry)
-            
-            items.append(NewsItem(
-                id=generate_news_id(title, "BloombergHT"),
-                title=title,
-                summary=summary[:200] + "..." if len(summary) > 200 else summary,
-                source="BloombergHT",
-                published_at=pub_date,
-                symbol=symbol,
-                asset_type=asset_type,
-                url=entry.get("link", "")
-            ))
-    except Exception as e:
-        print(f"BloombergHT RSS fetch error: {e}")
-    
-    return items
-
-
-async def fetch_paraanaliz_rss() -> List[NewsItem]:
-    """
-    Fetch Turkish economy news from Paraanaliz RSS (free).
-    """
-    items = []
-    try:
-        feed = feedparser.parse("https://www.paraanaliz.com/feed/")
-        
-        for entry in feed.entries[:10]:
-            title = entry.get("title", "")
-            summary = entry.get("description", "")
-            
-            # Clean HTML
-            summary = re.sub(r'<[^>]+>', '', summary)
-            
-            # Detect if it's crypto or stock related
-            crypto_keywords = ["bitcoin", "btc", "ethereum", "eth", "kripto", "coin"]
-            is_crypto = any(kw in title.lower() or kw in summary.lower() for kw in crypto_keywords)
-            asset_type = "crypto" if is_crypto else "stock"
-            symbol = detect_symbol(summary, asset_type, title)
-            
-            pub_date = parse_feed_date(entry)
-            
-            items.append(NewsItem(
-                id=generate_news_id(title, "Paraanaliz"),
-                title=title,
-                summary=summary[:200] + "..." if len(summary) > 200 else summary,
-                source="Paraanaliz",
-                published_at=pub_date,
-                symbol=symbol,
-                asset_type=asset_type,
-                url=entry.get("link", "")
-            ))
-    except Exception as e:
-        print(f"Paraanaliz RSS fetch error: {e}")
-    
-    return items
-
 
 async def fetch_koinbulteni_rss() -> List[NewsItem]:
     """
@@ -698,7 +620,7 @@ async def fetch_koinbulteni_rss() -> List[NewsItem]:
             # Clean HTML
             summary = re.sub(r'<[^>]+>', '', summary)
             
-            symbol = detect_symbol(summary, "crypto", title)
+            symbol = await detect_symbol_smart(summary, title, "crypto")
             
             pub_date = parse_feed_date(entry)
             
@@ -731,10 +653,6 @@ async def fetch_all_news() -> List[NewsItem]:
         fetch_marketwatch_rss(),
         fetch_investing_rss(),
         fetch_seeking_alpha_rss(),
-        # Turkish sources
-        fetch_bloomberght_rss(),
-        fetch_paraanaliz_rss(),
-        fetch_koinbulteni_rss(),
         return_exceptions=True
     )
     

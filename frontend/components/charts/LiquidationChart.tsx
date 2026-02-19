@@ -414,58 +414,66 @@ export default function LiquidationChart() {
     const displayMaxValue = maxVolume || 1;
 
     return (
-        <div className="relative w-full h-full bg-[#0a0a14]">
-            {/* Legend */}
-            <HeatmapLegend maxValue={displayMaxValue} />
-
-            {/* Refresh Button - Top Right */}
-            <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
-                {lastUpdated && (
-                    <span className="text-[10px] text-gray-500 font-mono">
-                        {lastUpdated.toLocaleTimeString('tr-TR')}
-                    </span>
-                )}
-                <button
-                    onClick={() => fetchData(false)}
-                    disabled={refreshing || loading}
-                    className={`
-                        flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                        bg-[#1a1a2e] border border-purple-900/50
-                        text-xs font-medium transition-all
-                        ${refreshing || loading
-                            ? 'opacity-50 cursor-not-allowed text-gray-500'
-                            : 'hover:bg-purple-900/30 hover:border-purple-600/50 text-gray-300 hover:text-white'
-                        }
-                    `}
-                    title="Verileri yenile"
-                >
-                    <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-                    <span>{refreshing ? 'Yenileniyor...' : 'Yenile'}</span>
-                </button>
+        <div className="flex flex-col w-full h-full bg-[#0a0a14]">
+            {/* Header Bar - Refresh controls separated from chart */}
+            <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-purple-900/30 bg-[#0d0d1a]">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-purple-400">Likidasyon Isı Haritası</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    {lastUpdated && (
+                        <span className="text-[10px] text-gray-500 font-mono">
+                            {lastUpdated.toLocaleTimeString('tr-TR')}
+                        </span>
+                    )}
+                    <button
+                        onClick={() => fetchData(false)}
+                        disabled={refreshing || loading}
+                        className={`
+                            flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                            bg-[#1a1a2e] border border-purple-900/50
+                            text-xs font-medium transition-all
+                            ${refreshing || loading
+                                ? 'opacity-50 cursor-not-allowed text-gray-500'
+                                : 'hover:bg-purple-900/30 hover:border-purple-600/50 text-gray-300 hover:text-white'
+                            }
+                        `}
+                        title="Verileri yenile"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                        <span>{refreshing ? 'Yenileniyor...' : 'Yenile'}</span>
+                    </button>
+                </div>
             </div>
 
-            {/* 1. Heatmap Canvas (Background Layer) */}
-            <canvas
-                ref={heatmapCanvasRef}
-                className="absolute inset-0 z-0 pointer-events-none"
-                style={{ filter: 'blur(1px)' }}
-            />
+            {/* Chart Area */}
+            <div className="relative flex-1 min-h-0">
+                {/* Legend */}
+                <HeatmapLegend maxValue={displayMaxValue} />
 
-            {/* 2. Chart Container (Foreground Layer) */}
-            <div
-                ref={chartContainerRef}
-                className="absolute inset-0 z-10"
-            />
+                {/* 1. Heatmap Canvas (Background Layer) */}
+                <canvas
+                    ref={heatmapCanvasRef}
+                    className="absolute inset-0 z-0 pointer-events-none"
+                    style={{ filter: 'blur(1px)' }}
+                />
 
-            {/* Loading Overlay */}
-            {loading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-20">
-                    <div className="flex flex-col items-center gap-3">
-                        <RefreshCw className="w-8 h-8 animate-spin text-purple-400" />
-                        <span className="text-sm text-gray-400">Isı haritası yükleniyor...</span>
+                {/* 2. Chart Container (Foreground Layer) */}
+                <div
+                    ref={chartContainerRef}
+                    className="absolute inset-0 z-10"
+                />
+
+                {/* Loading Overlay */}
+                {loading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-20">
+                        <div className="flex flex-col items-center gap-3">
+                            <RefreshCw className="w-8 h-8 animate-spin text-purple-400" />
+                            <span className="text-sm text-gray-400">Isı haritası yükleniyor...</span>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }

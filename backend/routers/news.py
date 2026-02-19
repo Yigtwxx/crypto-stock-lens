@@ -13,8 +13,8 @@ from services.technical_analysis_service import get_technical_analysis
 from services.rag_service import get_rag_context, store_news_with_outcome
 from utils import (
     Colors, log_header, log_step, log_success, log_warning, log_error, log_info, log_result,
-    USE_REAL_API, USE_OLLAMA_AI, MOCK_NEWS,
-    get_news_from_cache_or_mock, update_news_cache, get_news_cache
+    USE_REAL_API, USE_OLLAMA_AI,
+    get_news_from_cache, update_news_cache, get_news_cache
 )
 
 router = APIRouter()
@@ -45,9 +45,10 @@ async def get_news(
             print(f"Error fetching real news: {e}")
             items = []
     
-    # 3. If still empty (or API error), use mock data
+    # 3. If still empty, return empty list (NO MOCK DATA)
     if not items:
-        items = MOCK_NEWS.copy()
+        # items = MOCK_NEWS.copy()  <-- REMOVED
+        items = []
     
     # 4. Filter by asset type
     if asset_type:
@@ -65,7 +66,7 @@ async def get_news(
 @router.get("/api/news/{news_id}", response_model=NewsItem)
 async def get_news_item(news_id: str):
     """Fetch a specific news item by ID."""
-    item = get_news_from_cache_or_mock(news_id)
+    item = get_news_from_cache(news_id)
     if item:
         return item
     raise HTTPException(status_code=404, detail="News item not found")
@@ -83,7 +84,7 @@ async def analyze_news(request: AnalysisRequest):
     log_step("📰", f"News ID: {request.news_id}")
     
     # Find the news item from cache or mock data
-    news_item = get_news_from_cache_or_mock(request.news_id)
+    news_item = get_news_from_cache(request.news_id)
     
     # If not found in cache, try to fetch fresh news and search again
     if not news_item:
@@ -244,8 +245,12 @@ async def analyze_news(request: AnalysisRequest):
 @router.get("/api/symbols")
 async def get_tracked_symbols():
     """Get list of all tracked symbols."""
-    symbols = list(set(item.symbol for item in MOCK_NEWS))
-    return {"symbols": symbols}
+    # Return empty list or cached symbols if available
+    cached = get_news_cache()
+    if cached:
+        symbols = list(set(item.symbol for item in cached.values()))
+        return {"symbols": symbols}
+    return {"symbols": []}
 
 
 @router.get("/api/technical/{symbol}")

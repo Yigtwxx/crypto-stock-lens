@@ -78,7 +78,7 @@ export default function ChatSidebar({
                         className="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-oracle-card hover:bg-pink/10 border border-oracle-border hover:border-pink/50 transition-all group"
                     >
                         <Plus className="w-5 h-5 text-pink group-hover:scale-110 transition-transform" />
-                        <span className="text-sm font-medium text-gray-200 group-hover:text-white">Yeni Sohbet</span>
+                        <span className="text-sm font-medium text-gray-200 group-hover:text-white">New Chat</span>
                     </button>
                 </div>
 
@@ -119,7 +119,7 @@ export default function ChatSidebar({
                                                     p-1 rounded bg-oracle-dark/50 hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100
                                                     ${currentSessionId === session.id ? 'opacity-100' : ''}
                                                 `}
-                                                title="Sohbeti sil"
+                                                title="Delete chat"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
@@ -135,8 +135,8 @@ export default function ChatSidebar({
                             <div className="w-12 h-12 rounded-full bg-oracle-card flex items-center justify-center mx-auto mb-3">
                                 <MessageCircle className="w-6 h-6 text-gray-600" />
                             </div>
-                            <p className="text-sm text-gray-500">Henüz sohbet geçmişi yok.</p>
-                            <p className="text-xs text-gray-600 mt-1">Sohbetleriniz 7 gün saklanır.</p>
+                            <p className="text-sm text-gray-500">No chat history yet.</p>
+                            <p className="text-xs text-gray-600 mt-1">Chats are stored for 7 days.</p>
                         </div>
                     )}
                 </div>
@@ -144,7 +144,7 @@ export default function ChatSidebar({
                 {/* Footer / User Info */}
                 <div className="p-4 border-t border-oracle-border bg-oracle-darker">
                     <div className="text-xs text-center text-gray-600">
-                        <p>Oracle AI &copy; 2024</p>
+                        <p>Oracle AI &copy; 2026</p>
                     </div>
                 </div>
             </div>

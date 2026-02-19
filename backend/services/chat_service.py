@@ -23,6 +23,7 @@ IGNORED_WORDS = {
     "PRICE", "MARKET", "TODAY", "NOW", "GOOD", "BAD", "HIGH", "LOW"
 }
 
+
 # Enhanced Financial Oracle system prompt with strict data binding
 # Enhanced Financial Oracle system prompt with XML structure and CoT
 CHAT_SYSTEM_PROMPT = """You are Oracle-X, an advanced financial AI assistant.
@@ -36,11 +37,10 @@ Answer user questions using the **LIVE DATA (<context>)** provided to you.
 3. **NEVER SHOW XML OR THINKING TAGS IN YOUR FINAL RESPONSE.**
 4. Use a sincere, helpful, and professional tone. Do not sound robotic.
 5. If the user says "Hello", briefly greet them and provide a market summary.
-6. **ALWAYS** mention the current Bitcoin (BTC) price in every response (e.g., "As a market benchmark, Bitcoin is currently at $X..."). Even if the topic is different, include BTC as a market indicator.
-7. **CITATION STYLE:** When mentioning news, **DO NOT** write "according to Investing.com". Instead, use a small link format like this: `[Source](url)`. Example: *"Bitcoin rallied today due to ETF inflows [Source](https://...)."*
+6. **CITATION STYLE:** When mentioning news, **DO NOT** write "according to Investing.com". Instead, use a small link format like this: `[Source](url)`. Example: *"Bitcoin rallied today due to ETF inflows [Source](https://...)."*
 
 📋 **DATA SOURCES:**
-- Market and price data
+- Market and price data (Crypto OR Stocks)
 - Technical analysis signals
 - News and web results
 - Historical events (RAG)
@@ -63,52 +63,103 @@ async def detect_symbols(message: str) -> List[str]:
     return [s for s in potential if s not in IGNORED_WORDS]
 
 
-async def fetch_all_market_data(detected_symbols: List[str]) -> Dict[str, any]:
+async def flatten_stock_data_for_context(stock_data: Dict) -> Dict:
+    """Format stock data to match the expected 'technicals' structure for the context builder."""
+    if not stock_data:
+        return {}
+    
+    symbol = stock_data.get("symbol")
+    return {
+        symbol: {
+            "current_price": stock_data.get("price", 0),
+            "rsi_value": 0, # Not available for stocks yet
+            "rsi_signal": "N/A",
+            "trend": "N/A",
+            "support_levels": [f"${stock_data.get('low_24h', 0):.2f}"],
+            "resistance_levels": [f"${stock_data.get('high_24h', 0):.2f}"],
+            "target_price": f"${stock_data.get('high_24h', 0):.2f}", # Basic target
+            "market_cap": stock_data.get("market_cap", 0),
+            "volume": stock_data.get("volume_24h", 0)
+        }
+    }
+
+
+async def fetch_all_market_data(detected_symbols: List[str], context_type: str = "CRYPTO") -> Dict[str, any]:
     """
-    Fetch comprehensive market data from all available sources.
+    Fetch comprehensive market data from all available sources based on Context Type.
     """
     from services.market_overview_service import fetch_market_overview
     from services.news_service import fetch_all_news
     from services.fear_greed_service import fetch_fear_greed_index
     from services.technical_analysis_service import get_technical_analysis
+    from services.stock_market_service import get_stock_context_data, fetch_nasdaq_overview
     
     data = {
         "overview": None,
         "fear_greed": None,
         "news": [],
         "technicals": {},
-        "timestamp": datetime.now().strftime('%d %B %Y, %H:%M')
+        "timestamp": datetime.now().strftime('%d %B %Y, %H:%M'),
+        "context_type": context_type
     }
     
+    # --- PROCESSS STOCK CONTEXT ---
+    if context_type == "STOCK":
+        try:
+            # 1. Get Stock Overview (NASDAQ)
+            data["overview"] = await fetch_nasdaq_overview()
+            
+            # 2. Get specific symbol data if detected
+            if detected_symbols:
+                symbol = detected_symbols[0]
+                stock_details = await get_stock_context_data(symbol)
+                if stock_details:
+                    data["technicals"] = await flatten_stock_data_for_context(stock_details)
+                    # Use stock specific fear & greed from the details if available
+                    if "fear_greed" in stock_details:
+                        data["fear_greed"] = stock_details["fear_greed"]
+            
+            # 3. If no specific symbol fear/greed, fetch general stock fear/greed
+            if not data["fear_greed"] and data["overview"]:
+                data["fear_greed"] = data["overview"].get("fear_greed")
+
+        except Exception as e:
+            print(f"Stock data fetch error: {e}")
+
+    # --- PROCESS CRYPTO CONTEXT ---
+    else:
+        try:
+            # 1. Get Crypto Overview
+            data["overview"] = await fetch_market_overview()
+        except Exception as e:
+            print(f"Market overview fetch error: {e}")
+        
+        try:
+            data["fear_greed"] = await fetch_fear_greed_index()
+        except Exception as e:
+            print(f"Fear/Greed fetch error: {e}")
+        
+        # Ensure BTC is always analyzed for context in Crypto mode
+        if "BTC" not in detected_symbols:
+            detected_symbols.insert(0, "BTC")
+        
+        # Fetch technicals for detected symbols
+        for symbol in detected_symbols[:3]:  # Limit to 3 symbols
+            try:
+                tech = await get_technical_analysis(f"BINANCE:{symbol}USDT")
+                if tech and tech.get("current_price", 0) > 0:
+                    data["technicals"][symbol] = tech
+            except Exception as e:
+                print(f"Technical analysis error for {symbol}: {e}")
+
+    # --- COMMON DATA (NEWS) ---
     try:
-        # Fetch general market data
-        data["overview"] = await fetch_market_overview()
-    except Exception as e:
-        print(f"Market overview fetch error: {e}")
-    
-    try:
-        data["fear_greed"] = await fetch_fear_greed_index()
-    except Exception as e:
-        print(f"Fear/Greed fetch error: {e}")
-    
-    try:
+        # We might want separate stock news in the future, but for now generic news is fine
+        # Or filter news based on keywords if the news service supports it
         news = await fetch_all_news()
         data["news"] = news[:5] if news else []
     except Exception as e:
         print(f"News fetch error: {e}")
-    
-    # Ensure BTC is always analyzed for context
-    if "BTC" not in detected_symbols:
-        detected_symbols.insert(0, "BTC")
-    
-    # Fetch technicals for detected symbols
-    for symbol in detected_symbols[:3]:  # Limit to 3 symbols
-        try:
-            tech = await get_technical_analysis(f"BINANCE:{symbol}USDT")
-            if tech and tech.get("current_price", 0) > 0:
-                data["technicals"][symbol] = tech
-        except Exception as e:
-            print(f"Technical analysis error for {symbol}: {e}")
     
     return data
 
@@ -116,7 +167,9 @@ async def fetch_all_market_data(detected_symbols: List[str]) -> Dict[str, any]:
 async def build_context_string(market_data: Dict, web_context: str, message: str, rag_context: str = "") -> str:
     """
     Build comprehensive context string using XML tags.
+    Adapts based on market_data['context_type'].
     """
+    context_type = market_data.get("context_type", "CRYPTO")
     parts = ["<context>"]
     
     # Current date/time
@@ -126,9 +179,14 @@ async def build_context_string(market_data: Dict, web_context: str, message: str
     if market_data["overview"]:
         ov = market_data["overview"]
         parts.append("  <market_overview>")
-        parts.append(f"    <total_cap>${ov.get('total_market_cap', 0):,.0f}</total_cap>")
-        parts.append(f"    <btc_dominance>%{ov.get('btc_dominance', 0):.1f}</btc_dominance>")
-        parts.append(f"    <volume_24h>${ov.get('total_24h_volume', 0):,.0f}</volume_24h>")
+        if context_type == "STOCK":
+             parts.append(f"    <market_status>{ov.get('market_status', {}).get('message', 'N/A')}</market_status>")
+             parts.append(f"    <total_volume>${ov.get('total_volume_24h', 0):,.0f}</total_volume>")
+             parts.append(f"    <active_stocks>{ov.get('active_cryptocurrencies', 0)} (Tracked)</active_stocks>") # Reused field name key
+        else:
+            parts.append(f"    <total_cap>${ov.get('total_market_cap', 0):,.0f}</total_cap>")
+            parts.append(f"    <btc_dominance>%{ov.get('btc_dominance', 0):.1f}</btc_dominance>")
+            parts.append(f"    <volume_24h>${ov.get('total_24h_volume', 0):,.0f}</volume_24h>")
         parts.append("  </market_overview>")
     
     # Fear & Greed
@@ -136,31 +194,40 @@ async def build_context_string(market_data: Dict, web_context: str, message: str
         fg = market_data["fear_greed"]
         parts.append("  <sentiment>")
         parts.append(f"    <fear_greed_index>{fg.get('value', 'N/A')}</fear_greed_index>")
-        parts.append(f"    <status>{fg.get('value_classification', 'N/A')}</status>")
+        parts.append(f"    <status>{fg.get('classification', 'N/A') or fg.get('value_classification', 'N/A')}</status>")
         parts.append("  </sentiment>")
     
-    # Technical Analysis
+    # Technical/Asset Analysis
     if market_data["technicals"]:
-        parts.append("  <technical_analysis>")
+        parts.append("  <analysis_data>")
         for symbol, tech in market_data["technicals"].items():
             parts.append(f"    <asset symbol='{symbol}'>")
-            parts.append(f"      <price>${tech.get('current_price', 0):,.4f}</price>")
-            parts.append(f"      <rsi>{tech.get('rsi_value', 0):.1f} ({tech.get('rsi_signal', 'N/A')})</rsi>")
-            parts.append(f"      <trend>{tech.get('trend', 'N/A').upper()}</trend>")
+            parts.append(f"      <price>${tech.get('current_price', 0):,.2f}</price>")
             
-            supports = tech.get('support_levels', [])
-            resistances = tech.get('resistance_levels', [])
-            
-            if supports:
-                parts.append(f"      <supports>{', '.join(supports[:3])}</supports>")
-            if resistances:
-                parts.append(f"      <resistances>{', '.join(resistances[:3])}</resistances>")
-            
-            target = tech.get('target_price', '')
-            if target:
-                parts.append(f"      <target_price>{target}</target_price>")
+            if context_type == "STOCK":
+                 # Simplified stock data
+                parts.append(f"      <market_cap>${tech.get('market_cap', 0):,.0f}</market_cap>")
+                parts.append(f"      <day_high>{tech.get('target_price', 'N/A')}</day_high>") # Using target price field for high
+                parts.append(f"      <day_low>{tech.get('support_levels', ['N/A'])[0]}</day_low>")
+            else:
+                # Full Crypto Technicals
+                parts.append(f"      <rsi>{tech.get('rsi_value', 0):.1f} ({tech.get('rsi_signal', 'N/A')})</rsi>")
+                parts.append(f"      <trend>{tech.get('trend', 'N/A').upper()}</trend>")
+                
+                supports = tech.get('support_levels', [])
+                resistances = tech.get('resistance_levels', [])
+                
+                if supports:
+                    parts.append(f"      <supports>{', '.join(supports[:3])}</supports>")
+                if resistances:
+                    parts.append(f"      <resistances>{', '.join(resistances[:3])}</resistances>")
+                
+                target = tech.get('target_price', '')
+                if target:
+                    parts.append(f"      <target_price>{target}</target_price>")
+                    
             parts.append("    </asset>")
-        parts.append("  </technical_analysis>")
+        parts.append("  </analysis_data>")
     
     # Recent News
     if market_data["news"]:
@@ -194,15 +261,23 @@ async def chat_with_oracle(
     Enhanced Oracle chat with web search and multi-source analysis.
     """
     from services.web_search_service import get_enhanced_context
+    from services.stock_market_service import is_stock_symbol
     
     start_time = datetime.now()
     
-    # Step 1: Detect symbols in user message
+    # Step 1: Detect symbols
     detected_symbols = await detect_symbols(message)
     primary_symbol = detected_symbols[0] if detected_symbols else None
     
-    # Step 2: Fetch all market data (concurrent)
-    market_data = await fetch_all_market_data(detected_symbols)
+    # Step 1.5: Determine Context (Stock vs Crypto)
+    context_type = "CRYPTO" # Default
+    if primary_symbol and is_stock_symbol(primary_symbol):
+        context_type = "STOCK"
+    elif any(kw in message.lower() for kw in ["nasdaq", "stock", "hisse", "borsa", "sp500", "dow jones"]):
+         context_type = "STOCK"
+
+    # Step 2: Fetch market data based on context
+    market_data = await fetch_all_market_data(detected_symbols, context_type)
     
     # Step 3: Get web search context
     web_context = ""
@@ -211,7 +286,7 @@ async def chat_with_oracle(
     except Exception as e:
         print(f"Web search error: {e}")
     
-    # Step 4b: Get RAG 2.0 historical context (for temporal queries)
+    # Step 4: Get RAG 2.0 historical context
     rag_context = ""
     # Check if query is about historical events or patterns
     historical_keywords = ["geçen", "önceki", "tarihte", "halving", "ath", "dip", "crash", 
@@ -229,7 +304,7 @@ async def chat_with_oracle(
         except Exception as e:
             print(f"RAG 2.0 context error: {e}")
     
-    # Step 5: Build comprehensive context (now includes RAG)
+    # Step 5: Build comprehensive context
     full_context = await build_context_string(market_data, web_context, message, rag_context)
     
     # Step 5: Build conversation history
@@ -240,13 +315,20 @@ async def chat_with_oracle(
             conversation_text += f"\n{role}: {msg.get('content', '')}\n"
     
     # Step 6: Construct final system prompt
+    # Dynamic additional instruction based on context
+    context_instruction = ""
+    if context_type == "STOCK":
+         context_instruction = "\n7. **CONTEXT:** This is a STOCK MARKET query. Do NOT mention Bitcoin or Crypto unless explicitly asked. Focus on the stock data provided."
+    else:
+         context_instruction = "\n7. **CONTEXT:** This is a CRYPTO MARKET query. Always mention Bitcoin (BTC) price as a benchmark."
+
     style_instruction = ""
     if style == "concise":
         style_instruction = "\n8. **CONCISE MODE:** Keep your answer under 150 words. Be direct and to the point. No fluff."
     else:
         style_instruction = "\n8. **DETAILED MODE:** Provide deep analysis, multiple perspectives, and thorough explanation."
 
-    final_system_prompt = f"""{CHAT_SYSTEM_PROMPT}{style_instruction}
+    final_system_prompt = f"""{CHAT_SYSTEM_PROMPT}{context_instruction}{style_instruction}
 
 <context>
 {full_context}
@@ -310,7 +392,7 @@ Yanıtın:"""
                 # Add data sources indicator
                 sources_used = []
                 if market_data["technicals"]:
-                    sources_used.append("Teknik Analiz")
+                    sources_used.append("Piyasa Verileri" if context_type == "STOCK" else "Teknik Analiz")
                 if market_data["news"]:
                     sources_used.append("Haberler")
                 if web_context:

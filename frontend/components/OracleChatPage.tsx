@@ -488,5 +488,6 @@ export default function OracleChatPage() {
                     </form>
                 </div>
             </div>
-            );
+        </div>
+    );
 }

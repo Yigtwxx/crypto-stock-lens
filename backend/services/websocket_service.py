@@ -173,7 +173,18 @@ class PriceStreamingService:
                 
                 logger.info(f"Starting price stream for {len(DEFAULT_SYMBOLS)} symbols...")
                 
+                # Explicitly load markets first to catch HTTP errors early
+                try:
+                    await self.exchange.load_markets()
+                except Exception as e:
+                    logger.error(f"Failed to load exchange markets: {e}")
+                    await self.exchange.close()
+                    self.exchange = None
+                    await asyncio.sleep(5)
+                    continue
+
                 # Watch all symbols
+                retry_count = 0
                 while self.running:
                     try:
                         # Watch tickers for all symbols (CCXT Pro efficiently batches)
@@ -183,18 +194,30 @@ class PriceStreamingService:
                         for symbol, ticker in tickers.items():
                             await self._process_ticker(symbol, ticker)
                         
+                        # Reset retry count on success
+                        retry_count = 0
+                        
                     except asyncio.CancelledError:
                         break
                     except Exception as e:
-                        logger.error(f"Error watching tickers: {e}")
-                        await asyncio.sleep(1)
+                        # Exponential backoff for retries
+                        retry_count += 1
+                        wait_time = min(30, (2 ** retry_count)) # Cap at 30 seconds
+                        
+                        # Only log full error for first few failures to avoid spam
+                        if retry_count <= 3:
+                            logger.error(f"Error watching tickers (attempt {retry_count}): {e}")
+                        else:
+                            logger.warning(f"Ticker stream unstable, retrying in {wait_time}s...")
+                            
+                        await asyncio.sleep(wait_time)
                 
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Stream error: {e}")
+                logger.error(f"Stream mechanism error: {e}")
                 if self.running:
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(10)
                     # Reset exchange on error
                     if self.exchange:
                         try:

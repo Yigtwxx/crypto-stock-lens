@@ -103,14 +103,23 @@ export interface CoinData {
     market_cap_rank: number;
 }
 
+export interface MarketStatus {
+    status: string;
+    message: string;
+    color: string;
+    next_event: string;
+}
+
 export interface MarketOverview {
     coins: CoinData[];
     total_volume_24h: number;
     total_market_cap: number;
     btc_dominance: number;
-    eth_dominance: number;
+    eth_dominance?: number;
     active_cryptocurrencies: number;
+    fear_greed: FearGreedData;
     timestamp: string;
+    market_status?: MarketStatus;
 }
 
 export async function fetchFearGreedIndex(): Promise<FearGreedData> {

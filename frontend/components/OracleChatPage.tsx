@@ -60,6 +60,7 @@ export default function OracleChatPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [responseStyle, setResponseStyle] = useState<'detailed' | 'concise'>('detailed');
 
     // Session State
     const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -250,7 +251,8 @@ export default function OracleChatPage() {
                 body: JSON.stringify({
                     message: text.trim(),
                     history: history.length > 0 ? history : undefined,
-                    session_id: activeSessionId
+                    session_id: activeSessionId,
+                    style: responseStyle
                 })
             });
 
@@ -476,6 +478,32 @@ export default function OracleChatPage() {
                 {/* Input Area */}
                 <div className="p-4 border-t border-oracle-border bg-oracle-dark/80 backdrop-blur-md">
                     <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
+                        {/* Style Selector */}
+                        <div className="flex justify-center mb-3">
+                            <div className="bg-oracle-card border border-oracle-border p-1 rounded-lg flex gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setResponseStyle('concise')}
+                                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${responseStyle === 'concise'
+                                        ? 'bg-pink text-white shadow-lg shadow-pink/20'
+                                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                        }`}
+                                >
+                                    Concise
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setResponseStyle('detailed')}
+                                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${responseStyle === 'detailed'
+                                        ? 'bg-cyan text-black shadow-lg shadow-cyan/20'
+                                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                        }`}
+                                >
+                                    Detailed
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="flex items-center gap-3 p-2 rounded-2xl bg-oracle-card border border-oracle-border focus-within:border-pink/50 transition-colors">
                             <MessageCircle className="w-5 h-5 text-gray-500 ml-2" />
                             <input

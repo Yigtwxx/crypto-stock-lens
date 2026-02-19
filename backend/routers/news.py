@@ -26,31 +26,38 @@ async def get_news(
     limit: int = 20
 ):
     """
-    Fetch latest news items from multiple sources.
+    Fetch latest news items.
     
-    Args:
-        asset_type: Filter by "stock" or "crypto" (optional)
-        limit: Maximum number of items to return
-    
-    Returns:
-        List of news items with metadata
+    Serves data from memory cache (updated by background scheduler).
+    If cache is empty (server just started), triggers a fetch.
     """
-    if USE_REAL_API:
+    # 1. Try to get from cache
+    cached_dict = get_news_cache()
+    items = list(cached_dict.values())
+    
+    # 2. If cache is empty, fetch immediately (fallback)
+    if not items and USE_REAL_API:
+        log_warning("Cache miss in /api/news - fetching synchronously...")
         try:
             items = await fetch_all_news()
+            update_news_cache(items)
         except Exception as e:
             print(f"Error fetching real news: {e}")
-            items = MOCK_NEWS.copy()
-    else:
+            items = []
+    
+    # 3. If still empty (or API error), use mock data
+    if not items:
         items = MOCK_NEWS.copy()
     
+    # 4. Filter by asset type
     if asset_type:
         items = [n for n in items if n.asset_type == asset_type]
     
-    items = items[:limit]
+    # 5. Sort by date (newest first) just in case
+    items.sort(key=lambda x: x.published_at, reverse=True)
     
-    # Cache news items for analyze endpoint
-    update_news_cache(items)
+    # 6. Pagination
+    items = items[:limit]
     
     return NewsResponse(items=items, total=len(items))
 

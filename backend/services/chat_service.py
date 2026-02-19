@@ -187,7 +187,8 @@ async def build_context_string(market_data: Dict, web_context: str, message: str
 
 async def chat_with_oracle(
     message: str,
-    history: Optional[List[Dict[str, str]]] = None
+    history: Optional[List[Dict[str, str]]] = None,
+    style: str = "detailed"
 ) -> Dict:
     """
     Enhanced Oracle chat with web search and multi-source analysis.
@@ -239,7 +240,13 @@ async def chat_with_oracle(
             conversation_text += f"\n{role}: {msg.get('content', '')}\n"
     
     # Step 6: Construct final system prompt
-    final_system_prompt = f"""{CHAT_SYSTEM_PROMPT}
+    style_instruction = ""
+    if style == "concise":
+        style_instruction = "\n8. **CONCISE MODE:** Keep your answer under 150 words. Be direct and to the point. No fluff."
+    else:
+        style_instruction = "\n8. **DETAILED MODE:** Provide deep analysis, multiple perspectives, and thorough explanation."
+
+    final_system_prompt = f"""{CHAT_SYSTEM_PROMPT}{style_instruction}
 
 <context>
 {full_context}

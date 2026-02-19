@@ -21,11 +21,14 @@ def get_supabase():
     global _supabase_client
     
     if _supabase_client is None:
-        if not SUPABASE_URL or not SUPABASE_KEY:
-            raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment")
+        # Prefer Service Role key for backend operations to bypass RLS
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or SUPABASE_KEY
+        
+        if not SUPABASE_URL or not key:
+            raise ValueError("SUPABASE_URL and SUPABASE_KEY (or SUPABASE_SERVICE_ROLE_KEY) must be set in environment")
         
         from supabase import create_client, Client
-        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        _supabase_client = create_client(SUPABASE_URL, key)
     
     return _supabase_client
 

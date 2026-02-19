@@ -528,38 +528,41 @@ def get_rag_context_v2(
         k=5
     )
     
-    # Format for LLM
-    context_parts = ["=== TARİHSEL BAĞLAM (RAG 2.0) ===\n"]
+    # Format for LLM with XML
+    context_parts = []
     
     if results["events"]:
-        context_parts.append("## İlgili Piyasa Olayları:")
+        context_parts.append("  <rag_events>")
         for event in results["events"][:3]:
-            context_parts.append(f"- {event['date']}: {event['event']} ({event['type']})")
-        context_parts.append("")
+            context_parts.append(f"    <event date='{event['date']}' type='{event['type']}'>{event['event']}</event>")
+        context_parts.append("  </rag_events>")
     
     if results["prices"]:
-        context_parts.append("## Benzer Fiyat Hareketleri:")
+        context_parts.append("  <rag_prices>")
         for price in results["prices"][:5]:
             context_parts.append(
-                f"- {price['date']}: {price['symbol']} ${price['close']:,.0f} "
-                f"({price['change_pct']:+.1f}%)"
+                f"    <price_move date='{price['date']}' symbol='{price['symbol']}'>"
+                f"Close: ${price['close']:,.0f}, Change: {price['change_pct']:+.1f}%"
+                f"</price_move>"
             )
-        context_parts.append("")
+        context_parts.append("  </rag_prices>")
     
     if results["news"]:
-        context_parts.append("## Benzer Geçmiş Haberler ve Sonuçları:")
+        context_parts.append("  <rag_news>")
         for news in results["news"][:3]:
-            outcome = news.get('outcome', 'bilinmiyor')
+            outcome = news.get('outcome', 'unknown')
             price_change = news.get('price_change')
             correct = news.get('prediction_correct')
             
-            line = f"- \"{news['title'][:80]}...\""
-            line += f"\n  Tahmin: {news['sentiment'].upper()}"
+            line = f"    <news_item sentiment='{news['sentiment']}' outcome='{outcome}'>"
+            line += f"<title>{news['title'][:100]}...</title>"
             if price_change is not None:
-                line += f" | Sonuç: {price_change:+.1f}%"
+                line += f"<result_change>{price_change:+.1f}%</result_change>"
             if correct is not None:
-                line += f" | {'✓ Doğru' if correct else '✗ Yanlış'}"
+                line += f"<accuracy>{'Correct' if correct else 'Incorrect'}</accuracy>"
+            line += "</news_item>"
             context_parts.append(line)
+        context_parts.append("  </rag_news>")
     
     return "\n".join(context_parts)
 

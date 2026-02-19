@@ -24,42 +24,31 @@ IGNORED_WORDS = {
 }
 
 # Enhanced Financial Oracle system prompt with strict data binding
+# Enhanced Financial Oracle system prompt with XML structure and CoT
 CHAT_SYSTEM_PROMPT = """Sen Oracle-X, gelişmiş bir finansal yapay zeka asistanısın.
 
-🎯 **ANA GÖREV:**
-Kullanıcılara CANLI VERİYE dayalı, GÜNCEL ve DOĞRU finansal bilgi sağla.
+🎯 **GÖREVİN:**
+Sana sağlanan **CANLI VERİLERİ (<context>)** kullanarak kullanıcı sorularına yanıt ver.
 
-⚠️ **KRİTİK KURALLAR:**
-1. **ASLA ESKİ VERİ KULLANMA** - Sadece aşağıda sağlanan CANLI verileri kullan
-2. **TARİH KONTROLÜ** - Bugünün tarihi sistem tarafından verildi, bunu referans al
-3. **FİYAT DOĞRULUĞU** - Fiyatları SADECE sağlanan verilerden al, tahmin etme
-4. **WEB ARAMALARI** - Web arama sonuçları en güncel bilgiyi içerir, bunları öncelikle kullan
+⚠️ **KATİ KURALLAR:**
+1. **SADECE** aşağıdaki verileri kullan. Tahmin yapma.
+2. **<thinking>** etiketi içinde önce verileri analiz et, sonra yanıtı yaz.
+3. **YANITINDA XML VEYA THINKING ETİKETLERİ ASLA GÖRÜNMEMELİ.**
+4. Samimi, yardımsever ve profesyonel bir üslup kullan. Robot gibi konuşma.
+5. Kullanıcı "Merhaba" derse kısaca selam ver ve piyasa özetini sun.
+6. **HER YANITINDA MUTLAKA** Bitcoin'in (BTC) güncel fiyatını belirt (örneğin: "Bitcoin şu an $X seviyesinde..."). Konu başka bir coin olsa bile BTC'yi piyasa göstergesi olarak ekle.
 
-📋 **YANITLAMA FORMATI:**
-- Markdown kullan
-- Önemli sayıları `kod formatında` göster
-- 🟢 Pozitif, 🔴 Negatif, 🟡 Nötr
-- ⚠️ Uyarılar, 💡 Öneriler
-- Türkçe yanıt ver
+📋 **VERİ KAYNAKLARI:**
+- Market ve fiyat verileri
+- Teknik analiz sinyalleri
+- Haberler ve web sonuçları
+- Geçmiş olaylar (RAG)
 
-🧠 **ANALİZ SÜRECİ:**
-Yanıt vermeden önce şu adımları izle:
-1. Kullanıcı ne soruyor? (Fiyat mı, analiz mi, haber mi?)
-2. CANLI verilerden hangileri bu soruyu yanıtlar?
-3. Web arama sonuçları ne diyor?
-4. Teknik göstergeler (RSI, destek/direnç) ne gösteriyor?
-5. Tüm verileri sentezle ve net bir yanıt oluştur.
-
-📊 **VERİ ÖNCELİĞİ:**
-1. Sistem tarafından sağlanan CANLI fiyatlar (en güvenilir)
-2. Web arama sonuçları (güncel haberler için)
-3. Teknik analiz verileri
-4. Genel piyasa göstergeleri
-
-⚠️ **UYARILAR:**
-- "Bilgim yok" deme, verileri yorumla
-- Yatırım tavsiyesi olmadığını belirt
-- Belirsizlik varsa açıkça belirt"""
+🗣️ **YANIT FORMATI:**
+- Markdown kullan (kalın, liste vb.)
+- Kısa ve öz paragraflar
+- Gereksiz teknik terimlerden kaçın
+"""
 
 
 async def detect_symbols(message: str) -> List[str]:
@@ -105,6 +94,10 @@ async def fetch_all_market_data(detected_symbols: List[str]) -> Dict[str, any]:
     except Exception as e:
         print(f"News fetch error: {e}")
     
+    # Ensure BTC is always analyzed for context
+    if "BTC" not in detected_symbols:
+        detected_symbols.insert(0, "BTC")
+    
     # Fetch technicals for detected symbols
     for symbol in detected_symbols[:3]:  # Limit to 3 symbols
         try:
@@ -119,67 +112,72 @@ async def fetch_all_market_data(detected_symbols: List[str]) -> Dict[str, any]:
 
 async def build_context_string(market_data: Dict, web_context: str, message: str, rag_context: str = "") -> str:
     """
-    Build comprehensive context string for the AI.
+    Build comprehensive context string using XML tags.
     """
-    parts = []
+    parts = ["<context>"]
     
     # Current date/time
-    parts.append(f"📅 **GÜNCEL TARİH/SAAT:** {market_data['timestamp']}")
-    parts.append("")
+    parts.append(f"  <current_time>{market_data['timestamp']}</current_time>")
     
     # Market Overview
     if market_data["overview"]:
         ov = market_data["overview"]
-        parts.append("📉 **GENEL PİYASA:**")
-        parts.append(f"• Toplam Piyasa Değeri: ${ov.get('total_market_cap', 0):,.0f}")
-        parts.append(f"• BTC Dominansı: %{ov.get('btc_dominance', 0):.1f}")
-        parts.append(f"• 24s Hacim: ${ov.get('total_24h_volume', 0):,.0f}")
-        parts.append("")
+        parts.append("  <market_overview>")
+        parts.append(f"    <total_cap>${ov.get('total_market_cap', 0):,.0f}</total_cap>")
+        parts.append(f"    <btc_dominance>%{ov.get('btc_dominance', 0):.1f}</btc_dominance>")
+        parts.append(f"    <volume_24h>${ov.get('total_24h_volume', 0):,.0f}</volume_24h>")
+        parts.append("  </market_overview>")
     
     # Fear & Greed
     if market_data["fear_greed"]:
         fg = market_data["fear_greed"]
-        parts.append(f"😨 **Korku & Açgözlülük İndeksi:** {fg.get('value', 'N/A')} ({fg.get('value_classification', 'N/A')})")
-        parts.append("")
+        parts.append("  <sentiment>")
+        parts.append(f"    <fear_greed_index>{fg.get('value', 'N/A')}</fear_greed_index>")
+        parts.append(f"    <status>{fg.get('value_classification', 'N/A')}</status>")
+        parts.append("  </sentiment>")
     
-    # Technical Analysis for each detected symbol
+    # Technical Analysis
     if market_data["technicals"]:
+        parts.append("  <technical_analysis>")
         for symbol, tech in market_data["technicals"].items():
-            parts.append(f"📊 **{symbol} TEKNİK ANALİZ (CANLI):**")
-            parts.append(f"• Fiyat: ${tech.get('current_price', 0):,.4f}")
-            parts.append(f"• RSI (14): {tech.get('rsi_value', 0):.1f} ({tech.get('rsi_signal', 'N/A')})")
-            parts.append(f"• Trend: {tech.get('trend', 'N/A').upper()}")
+            parts.append(f"    <asset symbol='{symbol}'>")
+            parts.append(f"      <price>${tech.get('current_price', 0):,.4f}</price>")
+            parts.append(f"      <rsi>{tech.get('rsi_value', 0):.1f} ({tech.get('rsi_signal', 'N/A')})</rsi>")
+            parts.append(f"      <trend>{tech.get('trend', 'N/A').upper()}</trend>")
             
             supports = tech.get('support_levels', [])
             resistances = tech.get('resistance_levels', [])
             
             if supports:
-                parts.append(f"• Destek Seviyeleri: {', '.join(supports[:3])}")
+                parts.append(f"      <supports>{', '.join(supports[:3])}</supports>")
             if resistances:
-                parts.append(f"• Direnç Seviyeleri: {', '.join(resistances[:3])}")
+                parts.append(f"      <resistances>{', '.join(resistances[:3])}</resistances>")
             
             target = tech.get('target_price', '')
             if target:
-                parts.append(f"• Hedef Fiyat: {target}")
-            parts.append("")
+                parts.append(f"      <target_price>{target}</target_price>")
+            parts.append("    </asset>")
+        parts.append("  </technical_analysis>")
     
     # Recent News
     if market_data["news"]:
-        parts.append("📰 **SON HABERLER:**")
-        for i, item in enumerate(market_data["news"][:3], 1):
-            parts.append(f"{i}. {item.title} ({item.source})")
-        parts.append("")
+        parts.append("  <news>")
+        for item in market_data["news"][:3]:
+            parts.append("    <item>")
+            parts.append(f"      <title>{item.title}</title>")
+            parts.append(f"      <source>{item.source}</source>")
+            parts.append("    </item>")
+        parts.append("  </news>")
     
-    # RAG 2.0 Historical Context
+    # RAG History
     if rag_context:
-        parts.append(rag_context)
-        parts.append("")
+        parts.append(f"  <rag_history>\n{rag_context}\n  </rag_history>")
     
-    # Web Search Results
+    # Web Search
     if web_context:
-        parts.append(web_context)
-        parts.append("")
+        parts.append(f"  <web_search>\n{web_context}\n  </web_search>")
     
+    parts.append("</context>")
     return "\n".join(parts)
 
 
@@ -239,13 +237,9 @@ async def chat_with_oracle(
     # Step 6: Construct final system prompt
     final_system_prompt = f"""{CHAT_SYSTEM_PROMPT}
 
-═══════════════════════════════════════════════════
-🔴 CANLI VERİ KAYNAĞI - SADECE BUNLARI KULLAN 🔴
-═══════════════════════════════════════════════════
-
+<context>
 {full_context}
-
-═══════════════════════════════════════════════════
+</context>
 """
 
     # Step 7: Build user prompt
@@ -255,12 +249,11 @@ async def chat_with_oracle(
 Kullanıcı Sorusu: {message}
 
 📌 GÖREV:
-1. Yukarıdaki CANLI VERİLERİ analiz et
-2. Web arama sonuçlarını değerlendir
-3. Teknik göstergeleri yorumla
-4. Net, doğru ve güncel bir yanıt ver
+1. `<context>` içindeki verileri analiz et.
+2. `<thinking>` etiketi aç ve adım adım plan yap.
+3. Kullanıcıya net yanıt ver.
 
-Yanıtını şimdi oluştur:"""
+Yanıtın:"""
 
     # Step 8: Call Ollama
     try:
@@ -273,11 +266,11 @@ Yanıtını şimdi oluştur:"""
                     "system": final_system_prompt,
                     "stream": False,
                     "options": {
-                        "temperature": 0.3,    # Lower for accuracy
+                        "temperature": 0.3,    # Lower slightly for more focused answers
                         "top_p": 0.9,
-                        "num_predict": 4000,   # Allow detailed responses
+                        "num_predict": 4096,
                         "repeat_penalty": 1.1,
-                        "num_ctx": 8192,       # Larger context window
+                        "num_ctx": 8192,
                     }
                 }
             )
@@ -286,10 +279,22 @@ Yanıtını şimdi oluştur:"""
             
             if response.status_code == 200:
                 result = response.json()
-                ai_response = result.get("response", "").strip()
+                raw_response = result.get("response", "").strip()
                 
-                if not ai_response:
-                    ai_response = "Üzgünüm, yanıt oluşturulamadı. Lütfen tekrar deneyin."
+                # Extract clean response by removing <thinking> blocks
+                import re
+                clean_response = re.sub(r'<thinking>.*?</thinking>', '', raw_response, flags=re.DOTALL).strip()
+                
+                # If everything was in thinking block (edge case), use raw or fallback
+                if not clean_response:
+                     # Try to find content after thinking block if regex failed or it's just text
+                    if "</thinking>" in raw_response:
+                        clean_response = raw_response.split("</thinking>")[-1].strip()
+                    else:
+                        clean_response = raw_response
+
+                if not clean_response:
+                    clean_response = "Üzgünüm, yanıt oluşturulamadı. Lütfen tekrar deneyin."
                 
                 # Add data sources indicator
                 sources_used = []
@@ -303,7 +308,7 @@ Yanıtını şimdi oluştur:"""
                     sources_used.append("Sentiment")
                 
                 return {
-                    "response": ai_response,
+                    "response": clean_response,
                     "thinking_time": round(elapsed, 1),
                     "sources": sources_used,
                     "detected_symbol": primary_symbol

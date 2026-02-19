@@ -56,93 +56,6 @@ USE_OLLAMA_AI = True
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# MOCK NEWS DATA (for development fallback)
-# ═══════════════════════════════════════════════════════════════════════════════
-MOCK_NEWS: List[NewsItem] = [
-    NewsItem(
-        id="news_001",
-        title="Bitcoin Surges Past $105K as Institutional Demand Grows",
-        summary="Major financial institutions increase BTC holdings, driving unprecedented rally.",
-        source="CryptoNews",
-        published_at=datetime.now() - timedelta(hours=1),
-        symbol="BINANCE:BTCUSDT",
-        asset_type="crypto",
-        url="https://example.com/btc-surge"
-    ),
-    NewsItem(
-        id="news_002",
-        title="Ethereum 2.0 Staking Rewards Hit All-Time High",
-        summary="ETH staking yields reach 8.2% as network activity increases.",
-        source="DeFi Daily",
-        published_at=datetime.now() - timedelta(hours=2),
-        symbol="BINANCE:ETHUSDT",
-        asset_type="crypto",
-        url="https://example.com/eth-staking"
-    ),
-    NewsItem(
-        id="news_003",
-        title="Apple Announces Revolutionary AI Chip for iPhone 17",
-        summary="New A19 Bionic chip promises 3x faster on-device AI processing.",
-        source="TechCrunch",
-        published_at=datetime.now() - timedelta(hours=3),
-        symbol="NASDAQ:AAPL",
-        asset_type="stock",
-        url="https://example.com/apple-ai"
-    ),
-    NewsItem(
-        id="news_004",
-        title="Tesla Cybertruck Deliveries Exceed 500K Units in Q4",
-        summary="Record-breaking quarter as Cybertruck becomes best-selling electric truck.",
-        source="Electrek",
-        published_at=datetime.now() - timedelta(hours=4),
-        symbol="NASDAQ:TSLA",
-        asset_type="stock",
-        url="https://example.com/tesla-cybertruck"
-    ),
-    NewsItem(
-        id="news_005",
-        title="Microsoft Azure AI Revenue Doubles Year-Over-Year",
-        summary="Cloud AI services drive massive growth as enterprise adoption accelerates.",
-        source="Bloomberg",
-        published_at=datetime.now() - timedelta(hours=5),
-        symbol="NASDAQ:MSFT",
-        asset_type="stock",
-        url="https://example.com/msft-azure"
-    ),
-    NewsItem(
-        id="news_006",
-        title="Solana Network Processes 100K TPS in Stress Test",
-        summary="New optimization upgrades push Solana to unprecedented transaction speeds.",
-        source="The Block",
-        published_at=datetime.now() - timedelta(hours=6),
-        symbol="BINANCE:SOLUSDT",
-        asset_type="crypto",
-        url="https://example.com/solana-tps"
-    ),
-    NewsItem(
-        id="news_007",
-        title="NVIDIA Unveils Next-Gen H200 AI Accelerator",
-        summary="New GPU delivers 2x inference performance for large language models.",
-        source="AnandTech",
-        published_at=datetime.now() - timedelta(hours=7),
-        symbol="NASDAQ:NVDA",
-        asset_type="stock",
-        url="https://example.com/nvidia-h200"
-    ),
-    NewsItem(
-        id="news_008",
-        title="XRP Sees Major Exchange Listings After SEC Victory",
-        summary="Multiple major exchanges re-list XRP following regulatory clarity.",
-        source="CoinDesk",
-        published_at=datetime.now() - timedelta(hours=8),
-        symbol="BINANCE:XRPUSDT",
-        asset_type="crypto",
-        url="https://example.com/xrp-listings"
-    ),
-]
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # NEWS CACHE (shared between news and analysis endpoints)
 # ═══════════════════════════════════════════════════════════════════════════════
 _news_cache: dict = {}
@@ -159,11 +72,8 @@ def update_news_cache(items):
     _news_cache = {item.id: item for item in items}
 
 
-def get_news_from_cache_or_mock(news_id: str) -> Optional[NewsItem]:
-    """Get news item from cache or mock data."""
+def get_news_from_cache(news_id: str) -> Optional[NewsItem]:
+    """Get news item from cache."""
     if news_id in _news_cache:
         return _news_cache[news_id]
-    for item in MOCK_NEWS:
-        if item.id == news_id:
-            return item
     return None

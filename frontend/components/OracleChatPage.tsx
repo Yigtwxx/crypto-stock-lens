@@ -176,7 +176,7 @@ export default function OracleChatPage() {
             });
 
             // Refresh sessions to update timestamp/order
-            loadSessions();
+            // loadSessions(); // Removed: handled optimistically in sendMessage
         } catch (error) {
             console.error('Failed to save chat message:', error);
         }
@@ -220,6 +220,23 @@ export default function OracleChatPage() {
         // Save user message to DB
         await saveChatMessage('user', text.trim(), activeSessionId || undefined);
 
+        // OPTIMISTIC UPDATE: Move current session to top
+        if (activeSessionId) {
+            setSessions(prev => {
+                const sessionIndex = prev.findIndex(s => s.id === activeSessionId);
+                if (sessionIndex > -1) {
+                    const updatedSession = {
+                        ...prev[sessionIndex],
+                        updated_at: new Date().toISOString()
+                    };
+                    const newSessions = [...prev];
+                    newSessions.splice(sessionIndex, 1);
+                    return [updatedSession, ...newSessions];
+                }
+                return prev;
+            });
+        }
+
         try {
             // Build history for context (exclude current message)
             const history = messages.map(m => ({
@@ -259,7 +276,7 @@ export default function OracleChatPage() {
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
-            if (activeSessionId) loadSessions(); // Refresh list order
+            // activeSessionId loadSessions(); // Removed to rely on optimistic updates for speed
             inputRef.current?.focus();
         }
     };

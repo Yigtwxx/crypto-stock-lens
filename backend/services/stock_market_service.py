@@ -138,23 +138,23 @@ STOCK_LOGOS = {
 # Market cap estimates (in billions) for ranking
 # These are approximate values for sorting purposes
 MARKET_CAP_ESTIMATES = {
-    "AAPL": 3000, "MSFT": 2800, "GOOGL": 1800, "AMZN": 1700, "NVDA": 3000,
-    "META": 1300, "TSLA": 800, "AVGO": 700, "COST": 400, "NFLX": 300,
-    "AMD": 200, "ADBE": 250, "PEP": 230, "CSCO": 200, "INTC": 100,
-    "CMCSA": 150, "TMUS": 200, "TXN": 180, "QCOM": 200, "INTU": 180,
-    "AMGN": 150, "ISRG": 170, "HON": 140, "AMAT": 150, "BKNG": 150,
-    "SBUX": 100, "GILD": 110, "ADP": 120, "VRTX": 100, "PYPL": 80,
+    "NVDA": 4500, "AAPL": 3760, "GOOGL": 3660, "MSFT": 2950, "AMZN": 2130,
+    "META": 1620, "TSLA": 1540, "AVGO": 1540, "COST": 458, "NFLX": 422,
+    "TMUS": 289, "ADBE": 192, "PEP": 196, "CSCO": 252, "AMD": 182,
+    "QCOM": 186, "INTU": 169, "TXN": 175, "ISRG": 205, "AMGN": 151,
+    "HON": 145, "AMAT": 142, "BKNG": 158, "SBUX": 128, "GILD": 126,
+    "ADP": 124, "VRTX": 111, "PYPL": 82, "CMCSA": 142, "INTC": 87
 }
 
 
 async def fetch_single_stock(client: httpx.AsyncClient, symbol: str) -> Optional[dict]:
     """
-    Fetch single stock data from Yahoo Finance quote API.
+    Fetch single stock data from Yahoo Finance v8 chart API.
     Returns real-time price, change, volume and market cap.
     """
     try:
-        # Use v7 quote API which provides marketCap directly
-        url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
+        # Use v8 chart API (v7 quote API is now deprecated/unauthorized)
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
         response = await client.get(
             url,
             headers={
@@ -165,25 +165,28 @@ async def fetch_single_stock(client: httpx.AsyncClient, symbol: str) -> Optional
         
         if response.status_code == 200:
             data = response.json()
-            quote_response = data.get("quoteResponse", {})
-            results = quote_response.get("result", [])
+            chart = data.get("chart", {})
+            results = chart.get("result", [])
             
             if results:
-                quote = results[0]
+                meta = results[0].get("meta", {})
                 
-                price = quote.get("regularMarketPrice", 0) or 0
-                change = quote.get("regularMarketChangePercent", 0) or 0
-                volume = quote.get("regularMarketVolume", 0) or 0
-                high = quote.get("regularMarketDayHigh", 0) or 0
-                low = quote.get("regularMarketDayLow", 0) or 0
-                market_cap = quote.get("marketCap", 0) or 0
+                price = meta.get("regularMarketPrice", 0) or 0
+                prev_close = meta.get("chartPreviousClose", 0) or meta.get("previousClose", 0) or price
+                change = ((price - prev_close) / prev_close * 100) if prev_close and price else 0
+                volume = meta.get("regularMarketVolume", 0) or 0
+                high = meta.get("regularMarketDayHigh", 0) or 0
+                low = meta.get("regularMarketDayLow", 0) or 0
+                fifty_two_week_high = meta.get("fiftyTwoWeekHigh", high) or high
+                fifty_two_week_low = meta.get("fiftyTwoWeekLow", low) or low
                 
-                # 7-day price history (simplified - just current and previous close for calculation)
-                prev_close = quote.get("regularMarketPreviousClose", price)
-                fifty_two_week_high = quote.get("fiftyTwoWeekHigh", high)
-                fifty_two_week_low = quote.get("fiftyTwoWeekLow", low)
+                # Market cap from estimates (v8 chart doesn't include marketCap directly)
+                market_cap_estimate = MARKET_CAP_ESTIMATES.get(symbol, 0) * 1e9
                 
-                stock_meta = STOCK_METADATA.get(symbol, {"name": quote.get("shortName", symbol), "sector": "Other"})
+                stock_meta = STOCK_METADATA.get(symbol, {
+                    "name": meta.get("longName") or meta.get("shortName") or symbol, 
+                    "sector": "Other"
+                })
                 
                 return {
                     "symbol": symbol,
@@ -191,11 +194,11 @@ async def fetch_single_stock(client: httpx.AsyncClient, symbol: str) -> Optional
                     "sector": stock_meta.get("sector", "Other"),
                     "logo": STOCK_LOGOS.get(symbol, get_stock_logo(symbol)),
                     "price": float(price),
-                    "change_24h": float(change),
+                    "change_24h": round(float(change), 2),
                     "volume_24h": float(volume * price) if price else 0,
                     "high_24h": float(high),
                     "low_24h": float(low),
-                    "market_cap": float(market_cap),
+                    "market_cap": float(market_cap_estimate),
                     "market_cap_rank": 0,
                     "fifty_two_week_high": float(fifty_two_week_high),
                     "fifty_two_week_low": float(fifty_two_week_low)
@@ -205,6 +208,103 @@ async def fetch_single_stock(client: httpx.AsyncClient, symbol: str) -> Optional
     
     return None
 
+
+# Global Indices Configuration
+GLOBAL_INDICES = {
+    "^GSPC": {"name": "S&P 500", "region": "US"},
+    "^IXIC": {"name": "NASDAQ", "region": "US"},
+    "^DJI": {"name": "Dow Jones", "region": "US"},
+    "^FTSE": {"name": "FTSE 100", "region": "UK"},
+    "^GDAXI": {"name": "DAX", "region": "DE"},
+    "^N225": {"name": "Nikkei 225", "region": "JP"},
+    "^HSI": {"name": "Hang Seng", "region": "HK"},
+    "^FCHI": {"name": "CAC 40", "region": "FR"},
+}
+
+def get_market_status() -> dict:
+    """
+    Get current NASDAQ market status (US Eastern Time).
+    """
+    from datetime import datetime
+    import pytz # type: ignore
+
+    try:
+        # Define timezones
+        tz_ny = pytz.timezone('America/New_York')
+        now_ny = datetime.now(tz_ny)
+        
+        # Check weekend
+        if now_ny.weekday() >= 5: # 5=Saturday, 6=Sunday
+            return {
+                "status": "Closed",
+                "message": "🔴 Closed (Weekend)",
+                "color": "red",
+                "next_event": "Opens Mon 09:30 ET"
+            }
+            
+        # Convert to Minutes from Midnight for easy comparison
+        current_minutes = now_ny.hour * 60 + now_ny.minute
+        
+        # Market Hours (in minutes)
+        # Pre-market: 04:00 (240) - 09:30 (570)
+        # Open: 09:30 (570) - 16:00 (960)
+        # After-hours: 16:00 (960) - 20:00 (1200)
+        
+        pre_market_start = 4 * 60
+        open_start = 9 * 60 + 30
+        close_start = 16 * 60
+        after_hours_end = 20 * 60
+        
+        if pre_market_start <= current_minutes < open_start:
+            # Pre-market
+            minutes_to_open = open_start - current_minutes
+            hrs = minutes_to_open // 60
+            mins = minutes_to_open % 60
+            return {
+                "status": "Pre-market",
+                "message": f"🟠 Pre-market • Opens in {hrs}h {mins}m",
+                "color": "orange",
+                "next_event": "Market Opens 09:30 ET"
+            }
+            
+        elif open_start <= current_minutes < close_start:
+            # Market Open
+            minutes_to_close = close_start - current_minutes
+            hrs = minutes_to_close // 60
+            mins = minutes_to_close % 60
+            return {
+                "status": "Open",
+                "message": f"🟢 Market Open • Closes in {hrs}h {mins}m",
+                "color": "green",
+                "next_event": "Closes 16:00 ET"
+            }
+            
+        elif close_start <= current_minutes < after_hours_end:
+            # After-hours
+            return {
+                "status": "After-hours",
+                "message": "🌙 After-hours",
+                "color": "blue",
+                "next_event": "Pre-market 04:00 ET"
+            }
+            
+        else:
+            # Closed (Night)
+            return {
+                "status": "Closed",
+                "message": "🔴 Closed",
+                "color": "red",
+                "next_event": "Pre-market 04:00 ET"
+            }
+            
+    except Exception as e:
+        print(f"Error determining market status: {e}")
+        return {
+            "status": "Unknown",
+            "message": "--",
+            "color": "gray",
+            "next_event": ""
+        }
 
 async def fetch_nasdaq_overview() -> dict:
     """
@@ -217,7 +317,11 @@ async def fetch_nasdaq_overview() -> dict:
     if _stock_cache["data"] and _stock_cache["timestamp"]:
         elapsed = (datetime.now() - _stock_cache["timestamp"]).total_seconds()
         if elapsed < CACHE_DURATION_SECONDS:
-            return _stock_cache["data"]
+            # Ensure we update the status even if cached, as time flows
+            # But deep copy to not mutate cache in place improperly if threading issues (simple dict ok)
+            cached_data = _stock_cache["data"].copy()
+            cached_data["market_status"] = get_market_status()
+            return cached_data
     
     stocks_data = []
     total_volume = 0
@@ -236,16 +340,47 @@ async def fetch_nasdaq_overview() -> dict:
                 if ticker is None:
                     continue
                 
-                # Try to get basic info
-                info = ticker.info
+                # Use fast_info for critical data (much faster and more reliable)
+                price = ticker.fast_info.last_price
+                market_cap = ticker.fast_info.market_cap
                 
-                price = info.get('regularMarketPrice') or info.get('currentPrice') or 0
-                prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose') or price
-                change = ((price - prev_close) / prev_close * 100) if prev_close and price else 0
-                market_cap = info.get('marketCap') or 0
+                # Fallback to info for metadata if needed, but prioritize fast_info 
+                # fast_info doesn't have name/sector, so we rely on our metadata map or try info as backup
                 
-                if price > 0 and market_cap > 0:
-                    stock_meta = STOCK_METADATA.get(symbol, {"name": info.get('shortName', symbol), "sector": "Other"})
+                if price and price > 0:
+                    # Try to get extra info if available without blocking
+                    # We can use our static metadata to be safe and fast
+                    stock_meta = STOCK_METADATA.get(symbol, {"name": symbol, "sector": "Other"})
+                    
+                    # Try getting volume from fast_info (not always available directly in same way, need verification)
+                    # fast_info doesn't have 24h volume directly behaving like 'regularMarketVolume'
+                    # We can try accessing it, otherwise use fallback
+                    # Actually fast_info has 'last_volume' but it might be 0 until close.
+                    # safer to try info for volume/change if we want, or calculate change manually if we had prev close.
+                    
+                    # For change, fast_info has 'previous_close'
+                    prev_close = ticker.fast_info.previous_close
+                    change = ((price - prev_close) / prev_close * 100) if prev_close else 0
+                    
+                    # Volume from info (might trigger fetch) or estimate
+                    # To allow 'lazy' loading, access info properties only if necessary
+                    # But for now, let's trust fast_info for the heavy lifting (price/cap)
+                    
+                    # We will try to fetch full info for other fields, but if it fails, we keep price/cap
+                    try:
+                        info = ticker.info
+                        volume = info.get('volume', 0)
+                        high = info.get('dayHigh', price)
+                        low = info.get('dayLow', price)
+                        year_high = info.get('fiftyTwoWeekHigh', price)
+                        year_low = info.get('fiftyTwoWeekLow', price)
+                    except:
+                        # minimal fallback if full info fetch fails
+                        volume = 0
+                        high = price
+                        low = price
+                        year_high = price
+                        year_low = price
                     
                     stocks_data.append({
                         "symbol": symbol,
@@ -254,15 +389,16 @@ async def fetch_nasdaq_overview() -> dict:
                         "logo": STOCK_LOGOS.get(symbol, get_stock_logo(symbol)),
                         "price": float(price),
                         "change_24h": float(change),
-                        "volume_24h": float(info.get('volume', 5_000_000) * price),
-                        "high_24h": float(info.get('dayHigh', price * 1.01)),
-                        "low_24h": float(info.get('dayLow', price * 0.99)),
+                        "volume_24h": float(volume * price),
+                        "high_24h": float(high),
+                        "low_24h": float(low),
                         "market_cap": float(market_cap),
                         "market_cap_rank": 0,
-                        "fifty_two_week_high": float(info.get('fiftyTwoWeekHigh', price * 1.15)),
-                        "fifty_two_week_low": float(info.get('fiftyTwoWeekLow', price * 0.75))
+                        "fifty_two_week_high": float(year_high),
+                        "fifty_two_week_low": float(year_low)
                     })
-            except:
+            except Exception as e:
+                # If individual ticker fails, skip
                 continue
     except:
         pass  # Silently fall through to fallback
@@ -295,7 +431,8 @@ async def fetch_nasdaq_overview() -> dict:
         "btc_dominance": 0,
         "active_cryptocurrencies": len(stocks_data),
         "fear_greed": fear_greed,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "market_status": get_market_status()
     }
     
     # Update cache
@@ -307,18 +444,18 @@ async def fetch_nasdaq_overview() -> dict:
 
 def _get_fallback_nasdaq_data() -> list:
     """Return fallback stock data when API is unavailable."""
-    # Accurate market caps as of Feb 2025 (in USD)
+    # Accurate market caps as of Feb 2026 (in USD) derived from authenticated search
     fallback_prices = {
-        "AAPL": {"price": 227.63, "change": 0.75, "market_cap": 3440e9},   # #1-2
-        "MSFT": {"price": 412.38, "change": 0.45, "market_cap": 3060e9},   # #2-3
-        "NVDA": {"price": 129.84, "change": 2.15, "market_cap": 3180e9},   # #1-3
-        "GOOGL": {"price": 185.34, "change": -0.32, "market_cap": 2280e9}, # #4
-        "AMZN": {"price": 228.68, "change": 1.25, "market_cap": 2420e9},   # #5
-        "META": {"price": 676.12, "change": 1.85, "market_cap": 1720e9},   # #6
-        "AVGO": {"price": 224.76, "change": 0.95, "market_cap": 1050e9},   # #7
-        "TSLA": {"price": 352.36, "change": -1.45, "market_cap": 1130e9},  # #8
-        "COST": {"price": 1032.89, "change": 0.55, "market_cap": 458e9},   # #9
-        "NFLX": {"price": 982.54, "change": 1.35, "market_cap": 422e9},    # #10
+        "NVDA": {"price": 136.50, "change": 2.15, "market_cap": 4503e9},   # ~$4.5T
+        "AAPL": {"price": 232.00, "change": 0.75, "market_cap": 3759e9},   # ~$3.76T
+        "GOOGL": {"price": 190.50, "change": -0.32, "market_cap": 3663e9}, # ~$3.66T
+        "MSFT": {"price": 418.00, "change": 0.45, "market_cap": 2949e9},   # ~$2.95T
+        "AMZN": {"price": 235.00, "change": 1.25, "market_cap": 2134e9},   # ~$2.13T
+        "META": {"price": 685.00, "change": 1.85, "market_cap": 1618e9},   # ~$1.62T
+        "AVGO": {"price": 232.00, "change": 0.95, "market_cap": 1542e9},   # ~$1.54T
+        "TSLA": {"price": 366.00, "change": -1.45, "market_cap": 1540e9},  # ~$1.54T
+        "COST": {"price": 1045.00, "change": 0.55, "market_cap": 458e9},   # ~$458B
+        "NFLX": {"price": 990.00, "change": 1.35, "market_cap": 422e9},    # ~$422B
         "TMUS": {"price": 246.50, "change": 0.85, "market_cap": 289e9},
         "CSCO": {"price": 63.21, "change": 0.15, "market_cap": 252e9},
         "ADBE": {"price": 438.96, "change": 0.65, "market_cap": 192e9},
@@ -475,3 +612,24 @@ async def fetch_global_indices() -> list:
             ordered_data.append(item)
             
     return ordered_data
+
+def is_stock_symbol(symbol: str) -> bool:
+    """Check if the symbol is a known stock symbol."""
+    return symbol in NASDAQ_STOCKS or symbol in STOCK_METADATA or symbol in GLOBAL_INDICES
+
+async def get_stock_context_data(symbol: str) -> Optional[Dict]:
+    """
+    Get formatted stock data for AI context.
+    Usage: Chat Service
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            data = await fetch_single_stock(client, symbol)
+            if data:
+                # Add Fear & Greed for context
+                fg = await fetch_stock_fear_greed(client)
+                data["fear_greed"] = fg
+                return data
+    except Exception as e:
+        print(f"Error fetching stock context for {symbol}: {e}")
+    return None

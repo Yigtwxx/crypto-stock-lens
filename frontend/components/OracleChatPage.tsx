@@ -47,10 +47,10 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Suggested prompts for quick start
 const SUGGESTED_PROMPTS = [
-    { icon: Bitcoin, text: "Bitcoin teknik analizi yap", color: "text-orange-400" },
-    { icon: TrendingUp, text: "NVDA hissesi hakkında ne düşünüyorsun?", color: "text-green-400" },
-    { icon: Zap, text: "Piyasa durumu nasıl?", color: "text-cyan" },
-    { icon: HelpCircle, text: "En iyi DeFi coinleri hangileri?", color: "text-pink" },
+    { icon: Bitcoin, text: "Analyze Bitcoin technically", color: "text-orange-400" },
+    { icon: TrendingUp, text: "What do you think about NVDA?", color: "text-green-400" },
+    { icon: Zap, text: "How is the market today?", color: "text-cyan" },
+    { icon: HelpCircle, text: "Best DeFi coins to buy?", color: "text-pink" },
 ];
 
 export default function OracleChatPage() {
@@ -500,7 +500,7 @@ export default function OracleChatPage() {
                             </button>
                         </div>
                         <p className="text-center text-xs text-gray-600 mt-2">
-                            Oracle, detaylı ve doğru yanıtlar için zaman ayırır. Karmaşık sorular birkaç dakika sürebilir.
+                            Oracle takes time to provide detailed and accurate answers. Complex queries may take a minute.
                         </p>
                     </form>
                 </div>

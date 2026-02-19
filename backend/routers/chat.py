@@ -24,6 +24,7 @@ class ChatRequest(BaseModel):
     message: str
     history: Optional[List[ChatMessage]] = None
     session_id: Optional[str] = None
+    style: Optional[str] = "detailed"  # 'detailed' or 'concise'
 
 class ChatResponse(BaseModel):
     response: str
@@ -72,7 +73,7 @@ async def oracle_chat(request: ChatRequest):
     
     log_step("🤔", "Oracle is thinking (this may take a while for complex questions)...", Colors.PURPLE)
     
-    result = await chat_with_oracle(request.message, history)
+    result = await chat_with_oracle(request.message, history, style=request.style)
     
     # Update session title if it's the first message and creating a new session
     # This logic handles auto-titling (simplified for now)

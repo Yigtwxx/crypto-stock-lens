@@ -39,6 +39,15 @@ app = FastAPI(
 async def startup_event():
     """Start background services."""
     await liquidation_service.start()
+    
+    # Start background scheduler for news fetching
+    from services.scheduler_service import start_scheduler, update_news_cache_job
+    start_scheduler()
+    
+    # Trigger an immediate news fetch in background so cache isn't empty
+    import asyncio
+    asyncio.create_task(update_news_cache_job())
+    
     # Start price streaming service (lazy - starts when first client connects)
     # Uncomment below to start immediately on server start:
     # from services.websocket_service import price_streaming_service
@@ -48,6 +57,11 @@ async def startup_event():
 async def shutdown_event():
     """Stop background services."""
     await liquidation_service.stop()
+    
+    # Stop scheduler
+    from services.scheduler_service import stop_scheduler
+    stop_scheduler()
+    
     # Stop price streaming if running
     try:
         from services.websocket_service import price_streaming_service

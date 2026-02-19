@@ -324,19 +324,19 @@ export default function OracleChatPage() {
                             Oracle Chat
                             <Sparkles className="w-4 h-4 text-pink animate-pulse" />
                         </h2>
-                        <p className="text-[10px] md:text-xs text-gray-500 hidden md:block">Kripto, hisse ve piyasa analizi için AI asistanınız</p>
+                        <p className="text-[10px] md:text-xs text-gray-500 hidden md:block">Crypto, stock and market analysis AI assistant</p>
                     </div>
                     <div className="ml-auto flex items-center gap-3">
                         {isAvailable === true && (
                             <span className="flex items-center gap-1.5 text-[10px] md:text-xs text-green-400">
                                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                                <span className="hidden md:inline">Çevrimiçi</span>
+                                <span className="hidden md:inline">Online</span>
                             </span>
                         )}
                         {isAvailable === false && (
                             <span className="flex items-center gap-1.5 text-[10px] md:text-xs text-red-400">
                                 <span className="w-2 h-2 rounded-full bg-red-400" />
-                                <span className="hidden md:inline">Çevrimdışı</span>
+                                <span className="hidden md:inline">Offline</span>
                             </span>
                         )}
                     </div>
@@ -351,11 +351,11 @@ export default function OracleChatPage() {
                                 <Brain className="w-12 h-12 text-pink" />
                             </div>
                             <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-pink to-cyan bg-clip-text text-transparent mb-3">
-                                Oracle'a Hoş Geldiniz
+                                Welcome to Oracle
                             </h3>
                             <p className="text-gray-400 max-w-md mb-8">
-                                Kripto paralar, hisse senetleri ve piyasa analizi hakkında sorularınızı sorun.
-                                Oracle, detaylı ve doğru yanıtlar için zaman ayırır.
+                                Ask questions about cryptocurrencies, stocks and market analysis.
+                                Oracle takes time to provide detailed and accurate answers.
                             </p>
 
                             {/* Suggested Prompts */}

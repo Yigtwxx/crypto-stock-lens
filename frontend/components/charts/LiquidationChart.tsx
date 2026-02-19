@@ -418,7 +418,7 @@ export default function LiquidationChart() {
             {/* Header Bar - Refresh controls separated from chart */}
             <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-purple-900/30 bg-[#0d0d1a]">
                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-purple-400">Likidasyon Isı Haritası</span>
+                    <span className="text-xs font-semibold text-purple-400">Liquidation Heatmap</span>
                 </div>
                 <div className="flex items-center gap-2">
                     {lastUpdated && (
@@ -469,7 +469,7 @@ export default function LiquidationChart() {
                     <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-20">
                         <div className="flex flex-col items-center gap-3">
                             <RefreshCw className="w-8 h-8 animate-spin text-purple-400" />
-                            <span className="text-sm text-gray-400">Isı haritası yükleniyor...</span>
+                            <span className="text-sm text-gray-400">Heatmap loading...</span>
                         </div>
                     </div>
                 )}

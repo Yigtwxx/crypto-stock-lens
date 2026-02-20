@@ -10,3 +10,4 @@ pydantic>=2.5.3
 httpx>=0.26.0
 websockets>=10.0
 ccxt>=4.0.0
+apscheduler>=3.10.4

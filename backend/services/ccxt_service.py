@@ -17,9 +17,9 @@ import ccxt.async_support as ccxt
 # Default exchanges to query for arbitrage detection
 DEFAULT_EXCHANGES = [
     "binance",
+    "okx",
     "coinbasepro", 
     "kraken",
-    "okx",
     "kucoin",
     "bybit",
     "gateio",

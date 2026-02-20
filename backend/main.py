@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from services.liquidation_service import liquidation_service
 
 # Import all routers
-from routers import news, market, liquidation, watchlist, home, analysis, rag, chat, profile, exchanges, websocket
+from routers import news, market, liquidation, watchlist, home, analysis, rag, chat, profile, exchanges, websocket, community
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -114,6 +114,7 @@ app.include_router(chat.router)          # /api/chat, /api/chat/status, /api/cha
 app.include_router(profile.router)       # /api/profile/*
 app.include_router(exchanges.router)     # /api/exchanges, /api/multi-exchange, /api/arbitrage
 app.include_router(websocket.router)     # /ws/prices, /api/websocket/status
+app.include_router(community.router)     # /api/community/*
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

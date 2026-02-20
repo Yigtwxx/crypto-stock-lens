@@ -8,14 +8,15 @@ import OverviewPage from '@/components/OverviewPage';
 import HomePage from '@/components/HomePage';
 import PriceAlertModal from '@/components/PriceAlertModal';
 import { usePriceAlerts } from '@/hooks/usePriceAlerts';
-import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart, MessageCircle, Home, Layers, User, BrainCircuit } from 'lucide-react';
+import { Zap, LayoutDashboard, BarChart3, ChevronDown, Bitcoin, LineChart, MessageCircle, Home, Layers, User, BrainCircuit, Users } from 'lucide-react';
 import OracleChatPage from '@/components/OracleChatPage';
 import HeatmapPage from '@/components/HeatmapPage';
 import ProfilePage from '@/components/ProfilePage';
 import AnalysisPage from '@/components/AnalysisPage';
 import GlobalTicker from '@/components/GlobalTicker';
+import { CommunityPage } from '@/components';
 
-type TabType = 'home' | 'dashboard' | 'overview' | 'analysis' | 'chat' | 'heatmap' | 'profile';
+type TabType = 'home' | 'dashboard' | 'overview' | 'analysis' | 'chat' | 'heatmap' | 'community' | 'profile';
 type OverviewType = 'crypto' | 'nasdaq';
 
 export default function Dashboard() {
@@ -177,6 +178,18 @@ export default function Dashboard() {
                             <span>Heatmap</span>
                         </button>
 
+                        {/* Community Tab */}
+                        <button
+                            onClick={() => setActiveTab('community')}
+                            className={`flex items-center gap-2 px-2 py-2 text-sm font-medium transition-all duration-300 ease-out hover:scale-105 active:scale-95 ${activeTab === 'community'
+                                ? 'text-orange-400'
+                                : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            <Users className="w-4 h-4" />
+                            <span>Community</span>
+                        </button>
+
                         {/* Profile Tab */}
                         <button
                             onClick={() => setActiveTab('profile')}
@@ -231,6 +244,10 @@ export default function Dashboard() {
             ) : activeTab === 'heatmap' ? (
                 <main className="flex-1 overflow-hidden h-[calc(100vh-80px)]">
                     <HeatmapPage />
+                </main>
+            ) : activeTab === 'community' ? (
+                <main className="flex-1 overflow-hidden h-[calc(100vh-80px)]">
+                    <CommunityPage />
                 </main>
             ) : activeTab === 'profile' ? (
                 <main className="flex-1 overflow-hidden h-[calc(100vh-80px)]">

@@ -461,8 +461,8 @@ export default function OracleChatPage() {
                                                 </div>
                                             </div>
                                             <div>
-                                                <p className="text-sm text-pink font-medium">Oracle düşünüyor...</p>
-                                                <p className="text-xs text-gray-500">Detaylı analiz için zaman ayırıyor</p>
+                                                <p className="text-sm text-pink font-medium">Oracle thinking...</p>
+                                                <p className="text-xs text-gray-500">Detail analysis takes time</p>
                                             </div>
                                             <Loader2 className="w-5 h-5 text-pink animate-spin ml-2" />
                                         </div>

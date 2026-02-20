@@ -352,3 +352,70 @@ def generate_prediction_hash(news_id: str, sentiment: str, confidence: float) ->
     """Generate a unique hash for the prediction."""
     data = f"{news_id}:{sentiment}:{confidence}:{datetime.now().isoformat()}"
     return hashlib.sha256(data.encode()).hexdigest()
+
+
+async def detect_asset_symbol(text: str) -> Optional[str]:
+    """
+    Use LLM to detect the most relevant trading symbol from text.
+    Returns a TradingView compatible symbol (e.g. BINANCE:BTCUSDT or NASDAQ:AAPL) or None.
+    """
+    system_prompt = """You are a financial data assistant. Your ONLY job is to extract the main trading symbol from the news text.
+    
+    RULES:
+    1. Output MUST be a valid TradingView symbol format (EXCHANGE:SYMBOL).
+    2. For Crypto: Use BINANCE or OKX default (e.g. BINANCE:BTCUSDT, BINANCE:ETHUSDT, OKX:PIUSDT).
+    3. For Stocks: Use NASDAQ or NYSE default (e.g. NASDAQ:AAPL, NYSE:JPM).
+    4. If the text mentions multiple assets, pick the KEY subject.
+    5. If NO clear financial asset is mentioned, return "null".
+    6. Respond with ONLY the symbol string (or "null"), no JSON, no markdown, no quotes.
+    
+    EXAMPLES:
+    Input: "Bitcoin surges past $60k" -> Output: BINANCE:BTCUSDT
+    Input: "Tesla recalls 2000 vehicles" -> Output: NASDAQ:TSLA
+    Input: "Markets remain flat today" -> Output: null
+    """
+    
+    user_prompt = f"""Extract the main trading symbol from this text:
+    "{text[:500]}"
+    
+    Symbol:"""
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": MODEL_NAME,
+                    "prompt": user_prompt,
+                    "system": system_prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.1,  # Very low temp for deterministic output
+                        "num_predict": 20,   # Short output
+                        "stop": ["\\n", " "] # Stop at newline or space to get just the symbol
+                    }
+                }
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                raw_symbol = result.get("response", "").strip().strip('"').strip("'")
+                
+                if raw_symbol.lower() == "null" or len(raw_symbol) < 3:
+                    return None
+                    
+                # Basic validation of format
+                if ":" not in raw_symbol:
+                    # If LLM forgot exchange, try to guess
+                    if raw_symbol.endswith("USDT"):
+                        return f"BINANCE:{raw_symbol}"
+                    elif raw_symbol.isupper() and len(raw_symbol) <= 5:
+                        # Assume US stock if short ticker
+                        return f"NASDAQ:{raw_symbol}"
+                        
+                return raw_symbol
+                
+    except Exception as e:
+        _log("✗", f"Symbol detection error: {e}", Colors.RED)
+        
+    return None

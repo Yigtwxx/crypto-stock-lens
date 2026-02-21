@@ -155,47 +155,18 @@ async def fetch_market_overview() -> dict:
     except Exception as e:
         print(f"Error fetching market overview: {e}")
         
-    # Return cached data if available, otherwise use fallback mock data
+    # Return cached data if available, otherwise return empty result
     if _market_cache["data"]:
         return _market_cache["data"]
 
-    # Fallback Mock Data (when API fails)
-    mock_coins = [
-        {"symbol": "BTC", "name": "Bitcoin", "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png", "current_price": 68450.0, "price_change_percentage_24h": 1.2, "market_cap": 1350000000000, "market_cap_rank": 1, "total_volume": 25000000000},
-        {"symbol": "ETH", "name": "Ethereum", "image": "https://coin-images.coingecko.com/coins/images/279/large/ethereum.png", "current_price": 3850.0, "price_change_percentage_24h": -0.5, "market_cap": 460000000000, "market_cap_rank": 2, "total_volume": 12000000000},
-        {"symbol": "BNB", "name": "BNB", "image": "https://coin-images.coingecko.com/coins/images/825/large/bnb-icon2_2x.png", "current_price": 590.0, "price_change_percentage_24h": 0.8, "market_cap": 87000000000, "market_cap_rank": 4, "total_volume": 800000000},
-        {"symbol": "SOL", "name": "Solana", "image": "https://coin-images.coingecko.com/coins/images/4128/large/solana.png", "current_price": 145.0, "price_change_percentage_24h": 5.2, "market_cap": 65000000000, "market_cap_rank": 5, "total_volume": 3000000000},
-        {"symbol": "XRP", "name": "XRP", "image": "https://coin-images.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png", "current_price": 0.62, "price_change_percentage_24h": 1.1, "market_cap": 34000000000, "market_cap_rank": 6, "total_volume": 1000000000},
-        {"symbol": "USDT", "name": "Tether", "image": "https://coin-images.coingecko.com/coins/images/325/large/Tether.png", "current_price": 1.0, "price_change_percentage_24h": 0.01, "market_cap": 110000000000, "market_cap_rank": 3, "total_volume": 40000000000},
-        {"symbol": "DOGE", "name": "Dogecoin", "image": "https://coin-images.coingecko.com/coins/images/5/large/dogecoin.png", "current_price": 0.16, "price_change_percentage_24h": -2.1, "market_cap": 23000000000, "market_cap_rank": 8, "total_volume": 1500000000},
-        {"symbol": "ADA", "name": "Cardano", "image": "https://coin-images.coingecko.com/coins/images/975/large/cardano.png", "current_price": 0.58, "price_change_percentage_24h": -0.8, "market_cap": 20000000000, "market_cap_rank": 9, "total_volume": 400000000},
-        {"symbol": "AVAX", "name": "Avalanche", "image": "https://coin-images.coingecko.com/coins/images/12559/large/avalanches.png", "current_price": 45.0, "price_change_percentage_24h": 2.3, "market_cap": 17000000000, "market_cap_rank": 10, "total_volume": 600000000},
-        {"symbol": "TRX", "name": "TRON", "image": "https://coin-images.coingecko.com/coins/images/1094/large/tron-logo.png", "current_price": 0.12, "price_change_percentage_24h": 0.5, "market_cap": 10000000000, "market_cap_rank": 15, "total_volume": 300000000},
-    ]
-
-    # Process mock coins into expected format
-    processed_mock = []
-    for c in mock_coins:
-        processed_mock.append({
-            "symbol": c["symbol"],
-            "name": c["name"],
-            "logo": c["image"],
-            "price": c["current_price"],
-            "change_24h": c["price_change_percentage_24h"],
-            "volume_24h": c["total_volume"],
-            "high_24h": c["current_price"] * 1.05,
-            "low_24h": c["current_price"] * 0.95,
-            "market_cap": c["market_cap"],
-            "market_cap_rank": c["market_cap_rank"]
-        })
-
+    # Fallback: return empty result when API fails and no cache
     return {
-        "coins": processed_mock,
-        "total_volume_24h": sum(c["total_volume"] for c in mock_coins),
-        "total_market_cap": sum(c["market_cap"] for c in mock_coins),
-        "btc_dominance": 52.5,
-        "eth_dominance": 17.2,
-        "active_cryptocurrencies": 10000,
+        "coins": [],
+        "total_volume_24h": 0,
+        "total_market_cap": 0,
+        "btc_dominance": 0,
+        "eth_dominance": 0,
+        "active_cryptocurrencies": 0,
         "timestamp": datetime.now().isoformat()
     }
 

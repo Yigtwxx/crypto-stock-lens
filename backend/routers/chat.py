@@ -33,8 +33,6 @@ class ChatResponse(BaseModel):
 class SaveChatMessageRequest(BaseModel):
     user_id: str
     role: str
-    user_id: str
-    role: str
     content: str
     session_id: Optional[str] = None
     thinking_time: Optional[float] = None

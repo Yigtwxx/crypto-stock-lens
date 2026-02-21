@@ -14,7 +14,7 @@ async def get_all_posts(
         supabase = get_supabase()
         
         query = supabase.table("community_posts")\
-            .select("*, profiles(full_name, avatar_url, subscription_plan)")\
+            .select("*, profiles!community_posts_user_id_fkey(full_name, avatar_url, subscription_plan)")\
             .order("created_at", desc=True)\
             .range(offset, offset + limit - 1)
             
@@ -153,7 +153,7 @@ async def get_user_posts(user_id: str) -> List[Dict[str, Any]]:
     try:
         supabase = get_supabase()
         response = supabase.table("community_posts")\
-            .select("*, profiles(full_name, avatar_url, subscription_plan)")\
+            .select("*, profiles!community_posts_user_id_fkey(full_name, avatar_url, subscription_plan)")\
             .eq("user_id", user_id)\
             .order("created_at", desc=True)\
             .execute()

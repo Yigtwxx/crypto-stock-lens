@@ -11,3 +11,4 @@ httpx>=0.26.0
 websockets>=10.0
 ccxt>=4.0.0
 apscheduler>=3.10.4
+supabase>=2.0.0

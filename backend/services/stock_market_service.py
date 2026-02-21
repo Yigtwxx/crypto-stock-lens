@@ -135,16 +135,151 @@ STOCK_LOGOS = {
     "PYPL": get_stock_logo("PYPL"),
 }
 
-# Market cap estimates (in billions) for ranking
-# These are approximate values for sorting purposes
-MARKET_CAP_ESTIMATES = {
-    "NVDA": 4500, "AAPL": 3760, "GOOGL": 3660, "MSFT": 2950, "AMZN": 2130,
-    "META": 1620, "TSLA": 1540, "AVGO": 1540, "COST": 458, "NFLX": 422,
-    "TMUS": 289, "ADBE": 192, "PEP": 196, "CSCO": 252, "AMD": 182,
-    "QCOM": 186, "INTU": 169, "TXN": 175, "ISRG": 205, "AMGN": 151,
-    "HON": 145, "AMAT": 142, "BKNG": 158, "SBUX": 128, "GILD": 126,
-    "ADP": 124, "VRTX": 111, "PYPL": 82, "CMCSA": 142, "INTC": 87
+# Cache for real market cap data (refreshed every 30 min)
+_market_cap_cache: dict = {
+    "data": {},
+    "timestamp": None
 }
+MARKET_CAP_CACHE_DURATION = 1800  # 30 minutes
+
+# Yahoo Finance crumb session cache
+_yf_crumb_cache: dict = {
+    "crumb": None,
+    "cookies": None,
+    "timestamp": None
+}
+
+
+async def _get_yahoo_crumb(client: httpx.AsyncClient) -> tuple:
+    """
+    Get a valid Yahoo Finance crumb + cookies for authenticated API calls.
+    Crumb is required for v7/v10 endpoints.
+    """
+    global _yf_crumb_cache
+    
+    # Check crumb cache (valid for 1 hour)
+    if (_yf_crumb_cache["crumb"] and _yf_crumb_cache["timestamp"] and
+            (datetime.now() - _yf_crumb_cache["timestamp"]).total_seconds() < 3600):
+        return _yf_crumb_cache["crumb"], _yf_crumb_cache["cookies"]
+    
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        
+        # Step 1: Get cookies from Yahoo Finance
+        resp = await client.get("https://finance.yahoo.com/quote/AAPL/", headers=headers, follow_redirects=True)
+        cookies = dict(resp.cookies)
+        
+        # Step 2: Get crumb using cookies
+        crumb_resp = await client.get(
+            "https://query2.finance.yahoo.com/v1/test/getcrumb",
+            headers=headers,
+            cookies=cookies
+        )
+        
+        if crumb_resp.status_code == 200:
+            crumb = crumb_resp.text.strip()
+            if crumb and len(crumb) < 50:
+                _yf_crumb_cache["crumb"] = crumb
+                _yf_crumb_cache["cookies"] = cookies
+                _yf_crumb_cache["timestamp"] = datetime.now()
+                return crumb, cookies
+    except Exception as e:
+        print(f"Error getting Yahoo crumb: {e}")
+    
+    return None, None
+
+
+async def _fetch_batch_market_caps(client: httpx.AsyncClient, symbols: list) -> dict:
+    """
+    Batch-fetch market caps for all symbols using Yahoo Finance v7 quote API with crumb auth.
+    Returns dict of {symbol: market_cap_usd}.
+    """
+    global _market_cap_cache
+    
+    # Check if entire cache is still fresh
+    if (_market_cap_cache["timestamp"] and 
+            (datetime.now() - _market_cap_cache["timestamp"]).total_seconds() < MARKET_CAP_CACHE_DURATION and
+            len(_market_cap_cache["data"]) >= len(symbols) * 0.8):
+        return _market_cap_cache["data"]
+    
+    result = {}
+    
+    # Strategy 1: Yahoo Finance v7 quote with crumb (batch — single request for all symbols)
+    try:
+        crumb, cookies = await _get_yahoo_crumb(client)
+        if crumb and cookies:
+            symbols_str = ",".join(symbols)
+            resp = await client.get(
+                "https://query2.finance.yahoo.com/v7/finance/quote",
+                params={
+                    "symbols": symbols_str,
+                    "fields": "symbol,marketCap",
+                    "crumb": crumb
+                },
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                },
+                cookies=cookies
+            )
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                quotes = data.get("quoteResponse", {}).get("result", [])
+                for quote in quotes:
+                    sym = quote.get("symbol", "")
+                    mcap = quote.get("marketCap", 0)
+                    if sym and mcap and mcap > 0:
+                        result[sym] = mcap
+                
+                if result:
+                    _market_cap_cache["data"].update(result)
+                    _market_cap_cache["timestamp"] = datetime.now()
+                    print(f"✓ Fetched {len(result)} market caps via Yahoo v7 batch")
+                    return _market_cap_cache["data"]
+    except Exception as e:
+        print(f"Yahoo v7 batch market cap failed: {e}")
+    
+    # Strategy 2: Yahoo Finance v8 chart API — get sharesOutstanding and calculate
+    try:
+        for symbol in symbols:
+            if symbol in result:
+                continue
+            try:
+                resp = await client.get(
+                    f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+                    params={"interval": "1d", "range": "1d"},
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                        "Accept": "application/json"
+                    }
+                )
+                if resp.status_code == 200:
+                    chart_data = resp.json()
+                    meta = chart_data.get("chart", {}).get("result", [{}])[0].get("meta", {})
+                    price = meta.get("regularMarketPrice", 0) or 0
+                    # v8 chart often includes sharesOutstanding in meta
+                    shares = meta.get("sharesOutstanding", 0) or 0
+                    if price > 0 and shares > 0:
+                        result[symbol] = price * shares
+            except Exception:
+                continue
+        
+        if result:
+            _market_cap_cache["data"].update(result)
+            _market_cap_cache["timestamp"] = datetime.now()
+            print(f"✓ Calculated {len(result)} market caps from v8 sharesOutstanding")
+    except Exception as e:
+        print(f"v8 shares-based market cap failed: {e}")
+    
+    return _market_cap_cache["data"]
+
+
+def _get_cached_market_cap(symbol: str) -> float:
+    """Get market cap from cache for a single symbol."""
+    return _market_cap_cache["data"].get(symbol, 0)
+
 
 
 async def fetch_single_stock(client: httpx.AsyncClient, symbol: str) -> Optional[dict]:
@@ -180,8 +315,12 @@ async def fetch_single_stock(client: httpx.AsyncClient, symbol: str) -> Optional
                 fifty_two_week_high = meta.get("fiftyTwoWeekHigh", high) or high
                 fifty_two_week_low = meta.get("fiftyTwoWeekLow", low) or low
                 
-                # Market cap from estimates (v8 chart doesn't include marketCap directly)
-                market_cap_estimate = MARKET_CAP_ESTIMATES.get(symbol, 0) * 1e9
+                # Get market cap: try from cache first, then calculate from v8 sharesOutstanding
+                market_cap = _get_cached_market_cap(symbol)
+                if market_cap == 0:
+                    shares = meta.get("sharesOutstanding", 0) or 0
+                    if shares > 0 and price > 0:
+                        market_cap = price * shares
                 
                 stock_meta = STOCK_METADATA.get(symbol, {
                     "name": meta.get("longName") or meta.get("shortName") or symbol, 
@@ -198,7 +337,7 @@ async def fetch_single_stock(client: httpx.AsyncClient, symbol: str) -> Optional
                     "volume_24h": float(volume * price) if price else 0,
                     "high_24h": float(high),
                     "low_24h": float(low),
-                    "market_cap": float(market_cap_estimate),
+                    "market_cap": float(market_cap),
                     "market_cap_rank": 0,
                     "fifty_two_week_high": float(fifty_two_week_high),
                     "fifty_two_week_low": float(fifty_two_week_low)
@@ -309,7 +448,7 @@ def get_market_status() -> dict:
 async def fetch_nasdaq_overview() -> dict:
     """
     Fetch NASDAQ stock overview data.
-    Uses fallback data when markets are closed or API is unavailable.
+    Uses yfinance first, falls back to Yahoo Finance v8 chart API.
     """
     global _stock_cache
     
@@ -340,7 +479,7 @@ async def fetch_nasdaq_overview() -> dict:
                 if ticker is None:
                     continue
                 
-                # Use fast_info for critical data (much faster and more reliable)
+                # Use fast_info for critical data (faster and more reliable)
                 price = ticker.fast_info.last_price
                 market_cap = ticker.fast_info.market_cap
                 
@@ -400,14 +539,28 @@ async def fetch_nasdaq_overview() -> dict:
             except Exception as e:
                 # If individual ticker fails, skip
                 continue
-    except:
-        pass  # Silently fall through to fallback
+    except Exception as e:
+        print(f"yfinance failed: {e}")
     
-    # Use fallback if we didn't get enough data
+    # If yfinance failed or returned too few, try Yahoo Finance v8 chart API directly
     if len(stocks_data) < 5:
-        stocks_data = _get_fallback_nasdaq_data()
-    else:
-        # Sort and rank the data we got
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                # First, batch-fetch market caps for all symbols
+                await _fetch_batch_market_caps(client, NASDAQ_STOCKS)
+                
+                # Then fetch individual stock data (will use cached market caps)
+                tasks = [fetch_single_stock(client, symbol) for symbol in NASDAQ_STOCKS]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                for result in results:
+                    if isinstance(result, dict) and result.get("price", 0) > 0:
+                        stocks_data.append(result)
+        except Exception as e:
+            print(f"Yahoo Finance v8 fallback also failed: {e}")
+    
+    # Sort and rank all data regardless of source
+    if stocks_data:
         stocks_data.sort(key=lambda x: x.get("market_cap", 0), reverse=True)
         for i, stock in enumerate(stocks_data):
             stock["market_cap_rank"] = i + 1
@@ -422,7 +575,7 @@ async def fetch_nasdaq_overview() -> dict:
         async with httpx.AsyncClient(timeout=10.0) as client:
             fear_greed = await fetch_stock_fear_greed(client)
     except:
-        fear_greed = {"value": 50, "classification": "Neutral", "timestamp": datetime.now().isoformat()}
+        fear_greed = None
     
     result = {
         "coins": stocks_data,
@@ -442,69 +595,7 @@ async def fetch_nasdaq_overview() -> dict:
     return result
 
 
-def _get_fallback_nasdaq_data() -> list:
-    """Return fallback stock data when API is unavailable."""
-    # Accurate market caps as of Feb 2026 (in USD) derived from authenticated search
-    fallback_prices = {
-        "NVDA": {"price": 136.50, "change": 2.15, "market_cap": 4503e9},   # ~$4.5T
-        "AAPL": {"price": 232.00, "change": 0.75, "market_cap": 3759e9},   # ~$3.76T
-        "GOOGL": {"price": 190.50, "change": -0.32, "market_cap": 3663e9}, # ~$3.66T
-        "MSFT": {"price": 418.00, "change": 0.45, "market_cap": 2949e9},   # ~$2.95T
-        "AMZN": {"price": 235.00, "change": 1.25, "market_cap": 2134e9},   # ~$2.13T
-        "META": {"price": 685.00, "change": 1.85, "market_cap": 1618e9},   # ~$1.62T
-        "AVGO": {"price": 232.00, "change": 0.95, "market_cap": 1542e9},   # ~$1.54T
-        "TSLA": {"price": 366.00, "change": -1.45, "market_cap": 1540e9},  # ~$1.54T
-        "COST": {"price": 1045.00, "change": 0.55, "market_cap": 458e9},   # ~$458B
-        "NFLX": {"price": 990.00, "change": 1.35, "market_cap": 422e9},    # ~$422B
-        "TMUS": {"price": 246.50, "change": 0.85, "market_cap": 289e9},
-        "CSCO": {"price": 63.21, "change": 0.15, "market_cap": 252e9},
-        "ADBE": {"price": 438.96, "change": 0.65, "market_cap": 192e9},
-        "AMD": {"price": 112.45, "change": -0.85, "market_cap": 182e9},
-        "QCOM": {"price": 167.82, "change": 1.05, "market_cap": 186e9},
-        "INTU": {"price": 604.23, "change": 0.75, "market_cap": 169e9},
-        "TXN": {"price": 192.75, "change": 0.45, "market_cap": 175e9},
-        "ISRG": {"price": 578.34, "change": 0.95, "market_cap": 205e9},
-        "PEP": {"price": 143.28, "change": 0.25, "market_cap": 196e9},
-        "AMGN": {"price": 282.91, "change": 0.35, "market_cap": 151e9},
-        "AMAT": {"price": 172.65, "change": 1.25, "market_cap": 142e9},
-        "BKNG": {"price": 5012.78, "change": 0.65, "market_cap": 158e9},
-        "HON": {"price": 223.45, "change": 0.45, "market_cap": 145e9},
-        "VRTX": {"price": 432.18, "change": 1.15, "market_cap": 111e9},
-        "ADP": {"price": 302.56, "change": 0.45, "market_cap": 124e9},
-        "GILD": {"price": 101.23, "change": 0.25, "market_cap": 126e9},
-        "CMCSA": {"price": 36.78, "change": 0.35, "market_cap": 142e9},
-        "SBUX": {"price": 112.34, "change": -0.55, "market_cap": 128e9},
-        "INTC": {"price": 20.12, "change": -1.25, "market_cap": 87e9},
-        "PYPL": {"price": 78.92, "change": -0.75, "market_cap": 82e9},
-    }
-    
-    stocks_data = []
-    for symbol in NASDAQ_STOCKS:
-        data = fallback_prices.get(symbol, {"price": 100, "change": 0, "market_cap": 50e9})
-        stock_meta = STOCK_METADATA.get(symbol, {"name": symbol, "sector": "Other"})
-        
-        stocks_data.append({
-            "symbol": symbol,
-            "name": stock_meta["name"],
-            "sector": stock_meta.get("sector", "Other"),
-            "logo": STOCK_LOGOS.get(symbol, get_stock_logo(symbol)),
-            "price": data["price"],
-            "change_24h": data["change"],
-            "volume_24h": data["price"] * 5_000_000,  # Estimated volume
-            "high_24h": data["price"] * 1.02,
-            "low_24h": data["price"] * 0.98,
-            "market_cap": data["market_cap"],
-            "market_cap_rank": 0,
-            "fifty_two_week_high": data["price"] * 1.15,
-            "fifty_two_week_low": data["price"] * 0.75
-        })
-    
-    # Sort by market cap
-    stocks_data.sort(key=lambda x: x["market_cap"], reverse=True)
-    for i, stock in enumerate(stocks_data):
-        stock["market_cap_rank"] = i + 1
-    
-    return stocks_data
+
 
 
 async def fetch_stock_fear_greed(client: Optional[httpx.AsyncClient] = None) -> dict:
@@ -559,15 +650,11 @@ async def fetch_stock_fear_greed(client: Optional[httpx.AsyncClient] = None) -> 
     except Exception as e:
         print(f"Error fetching CNN Fear & Greed: {e}")
     
-    # Return cached or default
+    # Return cached data if available, otherwise None
     if _fear_greed_stock_cache["data"]:
         return _fear_greed_stock_cache["data"]
     
-    return {
-        "value": 50,
-        "classification": "Neutral",
-        "timestamp": datetime.now().isoformat()
-    }
+    return None
 
 
 # Global Indices Configuration

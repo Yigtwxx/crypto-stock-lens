@@ -304,6 +304,22 @@ async def save_chat_message(
         return None
 
 
+async def get_chat_history(user_id: str, limit: int = 50) -> List[Dict]:
+    """Get chat history for a user (legacy endpoint)."""
+    try:
+        supabase = get_supabase()
+        response = supabase.table("chat_messages")\
+            .select("*")\
+            .eq("user_id", user_id)\
+            .order("created_at", desc=True)\
+            .limit(limit)\
+            .execute()
+        return response.data or []
+    except Exception as e:
+        print(f"Error fetching chat history: {e}")
+        return []
+
+
 async def clear_chat_history(user_id: str) -> bool:
     """Clear all chat history for a user."""
     try:

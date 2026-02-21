@@ -49,7 +49,7 @@ def log_result(label: str, value: str, color: str = Colors.WHITE):
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION FLAGS
 # ═══════════════════════════════════════════════════════════════════════════════
-# Set to True to use real API data, False for mock data
+# Set to True to use real API data
 USE_REAL_API = True
 # Set to True to use Ollama AI for analysis
 USE_OLLAMA_AI = True

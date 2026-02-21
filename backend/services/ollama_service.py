@@ -9,21 +9,13 @@ from datetime import datetime
 import hashlib
 import time
 
+from utils import Colors
+
 
 # Ollama API endpoint (default local)
 OLLAMA_BASE_URL = "http://localhost:11434"
 MODEL_NAME = "llama3.1:8b"
 
-# Terminal colors for logging
-class Colors:
-    PURPLE = '\033[95m'
-    CYAN = '\033[96m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    GRAY = '\033[90m'
-    BOLD = '\033[1m'
-    END = '\033[0m'
 
 def _log(emoji: str, msg: str, color: str = Colors.CYAN):
     print(f"{color}      {emoji}  {msg}{Colors.END}", flush=True)

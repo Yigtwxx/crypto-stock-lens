@@ -10,6 +10,7 @@ import warnings
 warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,23 +22,13 @@ from routers import news, market, liquidation, watchlist, home, analysis, rag, c
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# APP CREATION
+# LIFECYCLE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-app = FastAPI(
-    title="Oracle-X API",
-    description="Financial Intelligence Terminal Backend",
-    version="1.0.0"
-)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# LIFECYCLE EVENTS
-# ═══════════════════════════════════════════════════════════════════════════════
-
-@app.on_event("startup")
-async def startup_event():
-    """Start background services."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage startup and shutdown of background services."""
+    # --- Startup ---
     await liquidation_service.start()
     
     # Start background scheduler for news fetching
@@ -47,15 +38,10 @@ async def startup_event():
     # Trigger an immediate news fetch in background so cache isn't empty
     import asyncio
     asyncio.create_task(update_news_cache_job())
-    
-    # Start price streaming service (lazy - starts when first client connects)
-    # Uncomment below to start immediately on server start:
-    # from services.websocket_service import price_streaming_service
-    # await price_streaming_service.start()
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Stop background services."""
+    yield
+
+    # --- Shutdown ---
     await liquidation_service.stop()
     
     # Stop scheduler
@@ -68,6 +54,18 @@ async def shutdown_event():
         await price_streaming_service.stop()
     except Exception:
         pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# APP CREATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+app = FastAPI(
+    title="Oracle-X API",
+    description="Financial Intelligence Terminal Backend",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

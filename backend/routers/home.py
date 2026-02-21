@@ -23,7 +23,7 @@ async def get_liquidations():
 
 @router.get("/api/home/onchain")
 async def get_onchain_data():
-    """Get on-chain stats (Mocked for demo)."""
+    """Get on-chain stats."""
     return await fetch_onchain_data()
 
 

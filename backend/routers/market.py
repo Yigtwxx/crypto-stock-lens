@@ -116,19 +116,7 @@ async def get_market_indices():
     except Exception as e:
         print(f"Error fetching indices: {e}")
     
-    # If no results or too few, return mock data with realistic values
-    if len(results) < 3:
-        results = [
-            {"symbol": "^GSPC", "name": "S&P 500", "price": 6025.99, "change_24h": 0.36, "region": "US"},
-            {"symbol": "^IXIC", "name": "NASDAQ", "price": 19654.02, "change_24h": 0.51, "region": "US"},
-            {"symbol": "^DJI", "name": "Dow Jones", "price": 44747.63, "change_24h": 0.30, "region": "US"},
-            {"symbol": "^FTSE", "name": "FTSE 100", "price": 8727.28, "change_24h": 0.57, "region": "UK"},
-            {"symbol": "^GDAXI", "name": "DAX", "price": 21902.43, "change_24h": 0.74, "region": "DE"},
-            {"symbol": "^N225", "name": "Nikkei 225", "price": 38787.02, "change_24h": -0.28, "region": "JP"},
-            {"symbol": "^HSI", "name": "Hang Seng", "price": 21133.54, "change_24h": 1.15, "region": "HK"},
-            {"symbol": "^STOXX50E", "name": "Euro Stoxx 50", "price": 5359.81, "change_24h": 0.42, "region": "EU"},
-        ]
-    
+    # Return whatever real data we managed to fetch (may be partial)
     return results
 
 

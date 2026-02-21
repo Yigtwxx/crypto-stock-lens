@@ -648,6 +648,8 @@ async def fetch_all_news() -> List[NewsItem]:
         fetch_cryptocompare_news(),
         fetch_coindesk_rss(),
         fetch_cointelegraph_rss(),
+        # Turkish crypto sources
+        fetch_koinbulteni_rss(),
         # Global stock sources
         fetch_marketwatch_rss(),
         fetch_investing_rss(),

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { fetchFearGreedIndex, fetchMarketOverview, FearGreedData, MarketOverview } from '@/lib/api';
+import { fetchFearGreedIndex, fetchMarketOverview, FearGreedData, MarketOverview, API_BASE_URL } from '@/lib/api';
 import FearGreedGauge from './FearGreedGauge';
 import { TrendingUp, TrendingDown, Activity, Flame } from 'lucide-react';
 import MarketStatsBar from './overview/MarketStatsBar';
@@ -20,7 +20,7 @@ export default function OverviewPage({ marketType = 'crypto' }: { marketType?: '
         try {
             if (marketType === 'nasdaq') {
                 // Fetch NASDAQ data (includes Fear & Greed)
-                const response = await fetch('http://localhost:8000/api/nasdaq-overview');
+                const response = await fetch(`${API_BASE_URL}/api/nasdaq-overview`);
                 const nasdaqData = await response.json();
 
                 // Set market data

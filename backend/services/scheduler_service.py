@@ -50,7 +50,7 @@ def start_scheduler():
         
         scheduler.start()
         log_header("SCHEDULER STARTED")
-        log_success("Background tasks initialized (News fetch: 10m)")
+        log_success("Background tasks initialized (News fetch: every 2m)")
 
 def stop_scheduler():
     """Stop the background scheduler."""

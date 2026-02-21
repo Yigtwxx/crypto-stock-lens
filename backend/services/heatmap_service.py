@@ -230,59 +230,12 @@ async def _fetch_detailed_metrics(client: httpx.AsyncClient, coin_ids: List[str]
 
 def _get_fallback_heatmap_data() -> Dict[str, Any]:
     """
-    Return fallback data when API fails.
+    Return empty data when API fails and no cache is available.
     """
-    fallback_coins = [
-        {"id": "bitcoin", "symbol": "BTC", "name": "Bitcoin", "sector": "Store of Value", 
-         "price": 97500, "market_cap": 1920000000000, "volume_24h": 45000000000,
-         "price_change_24h": 2.5, "social_score": 95, "developer_score": 85, "volume_score": 90},
-        {"id": "ethereum", "symbol": "ETH", "name": "Ethereum", "sector": "Smart Contracts",
-         "price": 3850, "market_cap": 463000000000, "volume_24h": 18000000000,
-         "price_change_24h": 1.8, "social_score": 92, "developer_score": 98, "volume_score": 75},
-        {"id": "solana", "symbol": "SOL", "name": "Solana", "sector": "Smart Contracts",
-         "price": 195, "market_cap": 95000000000, "volume_24h": 4500000000,
-         "price_change_24h": 4.2, "social_score": 88, "developer_score": 90, "volume_score": 65},
-        {"id": "binancecoin", "symbol": "BNB", "name": "BNB", "sector": "Exchange",
-         "price": 680, "market_cap": 98000000000, "volume_24h": 1800000000,
-         "price_change_24h": 0.5, "social_score": 75, "developer_score": 70, "volume_score": 55},
-        {"id": "xrp", "symbol": "XRP", "name": "XRP", "sector": "Payments",
-         "price": 2.45, "market_cap": 140000000000, "volume_24h": 8500000000,
-         "price_change_24h": -1.2, "social_score": 82, "developer_score": 60, "volume_score": 70},
-        {"id": "cardano", "symbol": "ADA", "name": "Cardano", "sector": "Smart Contracts",
-         "price": 0.95, "market_cap": 34000000000, "volume_24h": 850000000,
-         "price_change_24h": 3.1, "social_score": 78, "developer_score": 88, "volume_score": 45},
-        {"id": "dogecoin", "symbol": "DOGE", "name": "Dogecoin", "sector": "Meme",
-         "price": 0.32, "market_cap": 47000000000, "volume_24h": 2100000000,
-         "price_change_24h": 5.5, "social_score": 90, "developer_score": 25, "volume_score": 55},
-        {"id": "avalanche-2", "symbol": "AVAX", "name": "Avalanche", "sector": "Smart Contracts",
-         "price": 38, "market_cap": 15800000000, "volume_24h": 520000000,
-         "price_change_24h": 2.8, "social_score": 72, "developer_score": 82, "volume_score": 40},
-        {"id": "chainlink", "symbol": "LINK", "name": "Chainlink", "sector": "Oracle",
-         "price": 18.5, "market_cap": 11500000000, "volume_24h": 680000000,
-         "price_change_24h": 1.5, "social_score": 76, "developer_score": 85, "volume_score": 42},
-        {"id": "polygon", "symbol": "MATIC", "name": "Polygon", "sector": "Layer 2",
-         "price": 0.48, "market_cap": 4800000000, "volume_24h": 320000000,
-         "price_change_24h": -0.8, "social_score": 74, "developer_score": 88, "volume_score": 35},
-        {"id": "uniswap", "symbol": "UNI", "name": "Uniswap", "sector": "DeFi",
-         "price": 12.8, "market_cap": 9600000000, "volume_24h": 280000000,
-         "price_change_24h": 2.1, "social_score": 68, "developer_score": 92, "volume_score": 32},
-        {"id": "arbitrum", "symbol": "ARB", "name": "Arbitrum", "sector": "Layer 2",
-         "price": 0.85, "market_cap": 3400000000, "volume_24h": 420000000,
-         "price_change_24h": 3.5, "social_score": 65, "developer_score": 78, "volume_score": 38},
-    ]
-    
-    sectors = {}
-    for coin in fallback_coins:
-        coin["image"] = ""
-        coin["price_change_7d"] = coin["price_change_24h"] * 2.5
-        sector = coin["sector"]
-        if sector not in sectors:
-            sectors[sector] = []
-        sectors[sector].append(coin)
-    
     return {
-        "coins": fallback_coins,
-        "sectors": sectors,
+        "coins": [],
+        "sectors": {},
         "timestamp": datetime.now().isoformat(),
         "metrics": ["price_change_24h", "volume_score", "social_score", "developer_score"]
     }
+

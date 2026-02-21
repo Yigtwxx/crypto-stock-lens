@@ -4,7 +4,7 @@ Handles news fetching, AI sentiment analysis, technical analysis, and Ollama sta
 """
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException
-import random
+
 
 from models.schemas import NewsItem, NewsResponse, AnalysisRequest, SentimentAnalysis
 from services.news_service import fetch_all_news
@@ -45,9 +45,8 @@ async def get_news(
             print(f"Error fetching real news: {e}")
             items = []
     
-    # 3. If still empty, return empty list (NO MOCK DATA)
+    # 3. If still empty, return empty list
     if not items:
-        # items = MOCK_NEWS.copy()  <-- REMOVED
         items = []
     
     # 4. Filter by asset type
@@ -83,7 +82,7 @@ async def analyze_news(request: AnalysisRequest):
     log_header("NEW ANALYSIS REQUEST")
     log_step("📰", f"News ID: {request.news_id}")
     
-    # Find the news item from cache or mock data
+    # Find the news item from cache
     news_item = get_news_from_cache(request.news_id)
     
     # If not found in cache, try to fetch fresh news and search again
@@ -203,14 +202,11 @@ async def analyze_news(request: AnalysisRequest):
         else:
             technical_signals = analysis.get("technical_signals")
     else:
-        log_warning("Ollama AI disabled, using fallback analysis...")
-        # Fallback to mock analysis
-        sentiments = ["bullish", "bearish", "neutral"]
-        sentiment = random.choice(sentiments[:2])
-        confidence = round(random.uniform(0.65, 0.95), 2)
-        reasoning = f"Based on analysis of '{news_item.title}', market indicators suggest a {sentiment} outlook."
-        historical_context = f"Similar news patterns have resulted in average price movements of +/-8.5% within 7 days."
-        technical_signals = None
+        log_warning("Ollama AI disabled, cannot perform analysis.")
+        raise HTTPException(
+            status_code=503,
+            detail="AI analysis is currently unavailable. Ollama AI service is not enabled."
+        )
     
     # Generate prediction hash
     log_step("🔐", "Generating prediction hash...", Colors.GRAY)

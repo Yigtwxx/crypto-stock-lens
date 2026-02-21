@@ -307,14 +307,14 @@ async def chat_with_oracle(
     # Step 5: Build comprehensive context
     full_context = await build_context_string(market_data, web_context, message, rag_context)
     
-    # Step 5: Build conversation history
+    # Step 6: Build conversation history
     conversation_text = ""
     if history:
         for msg in history[-4:]:  # Last 4 messages for context
             role = "Kullanıcı" if msg.get("role") == "user" else "Oracle"
             conversation_text += f"\n{role}: {msg.get('content', '')}\n"
     
-    # Step 6: Construct final system prompt
+    # Step 7: Construct final system prompt
     # Dynamic additional instruction based on context
     context_instruction = ""
     if context_type == "STOCK":
@@ -335,7 +335,7 @@ async def chat_with_oracle(
 </context>
 """
 
-    # Step 7: Build user prompt
+    # Step 8: Build user prompt
     user_prompt = f"""Geçmiş Konuşma:
 {conversation_text}
 
@@ -348,7 +348,7 @@ Kullanıcı Sorusu: {message}
 
 Yanıtın:"""
 
-    # Step 8: Call Ollama
+    # Step 9: Call Ollama
     try:
         async with httpx.AsyncClient(timeout=CHAT_TIMEOUT) as client:
             response = await client.post(
@@ -375,7 +375,6 @@ Yanıtın:"""
                 raw_response = result.get("response", "").strip()
                 
                 # Extract clean response by removing <thinking> blocks
-                import re
                 clean_response = re.sub(r'<thinking>.*?</thinking>', '', raw_response, flags=re.DOTALL).strip()
                 
                 # If everything was in thinking block (edge case), use raw or fallback

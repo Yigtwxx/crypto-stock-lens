@@ -1,11 +1,10 @@
 """
 Home Page Service
-Fetches Funding Rates, Liquidations (Binance), and On-Chain Data (Mock).
+Fetches Funding Rates, Liquidations (Binance), and On-Chain Data.
 """
 
 import httpx
-import random
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Dict, Any
 import xml.etree.ElementTree as ET
 
@@ -155,101 +154,57 @@ async def fetch_funding_rates() -> List[Dict]:
 
 async def fetch_liquidations() -> List[Dict]:
     """
-    Fetch recent liquidation orders from Binance Futures.
-    Iterates through top symbols to ensure we get data.
-    Returns: List of {symbol, side, quantity, price, value_usd, time}
+    Fetch recent liquidation orders from the background LiquidationService.
+    This provides real-time, 100% accurate data instead of mock or limited REST data.
+    Returns: List of {symbol, side, quantity, price, amount_usd, time_ago}
     """
     global _home_cache
     
-    if _is_cache_valid("liquidations"):
+    # We lower the cache TTL for liquidations since it's a fast-moving "feed"
+    # Even 10 seconds is enough to prevent spamming
+    if _is_cache_valid("liquidations", ttl_override=10):
         return _home_cache["liquidations"]["data"]
 
     try:
-        async with httpx.AsyncClient() as client:
-            all_orders = []
-            # Fetch for top volatile assets to find liquidations
-            target_symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
+        from services.liquidation_service import liquidation_service
+        
+        # Access the deque directly within a lock (or a copy of it)
+        # We want the most recent ones first
+        async with liquidation_service._lock:
+            recent_liquidations = list(liquidation_service.liquidations)
             
-            for symbol in target_symbols:
-                try:
-                    response = await client.get(
-                        f"{BINANCE_FUTURES_API}/fapi/v1/allForceOrders", 
-                        params={"symbol": symbol, "limit": 50},
-                        timeout=5
-                    )
-                    if response.status_code == 200:
-                        data = response.json()
-                        if isinstance(data, list):
-                            all_orders.extend(data)
-                except Exception:
-                    continue
+        # The service appends new events to the right of the deque
+        # So we reverse it to get newest first
+        recent_liquidations.reverse()
+        
+        # Take the top 100 to show in the feed
+        feed_data = recent_liquidations[:100]
+        
+        cleaned_data = []
+        for item in feed_data:
+            # "SELL" = Long Liquidated, "BUY" = Short Liquidated
+            side_formatted = "Long" if item["side"] == "SELL" else "Short"
             
-            cleaned_data = []
-            for item in all_orders:
-                # Double check item structure just in case
-                if not isinstance(item, dict) or "origQty" not in item:
-                    continue
-                    
-                qty = float(item["origQty"])
-                price = float(item["price"])
-                value_usd = qty * price
-                
-                # "SELL" = Long Liquidated, "BUY" = Short Liquidated
-                cleaned_data.append({
-                    "symbol": item["symbol"].replace("USDT", ""),
-                    "side": "Long" if item["side"] == "SELL" else "Short",
-                    "price": price,
-                    "amount_usd": value_usd,
-                    "time_ago": _get_time_ago(item["time"]),
-                    "timestamp": item["time"]
-                })
+            # format symbol (e.g. BTCUSDT -> BTC)
+            symbol_formatted = item["symbol"].replace("USDT", "")
             
-            # Sort by timestamp descending (newest first)
-            cleaned_data.sort(key=lambda x: x["timestamp"], reverse=True)
+            cleaned_data.append({
+                "symbol": symbol_formatted,
+                "side": side_formatted,
+                "price": item["price"],
+                "amount_usd": item["amount_usd"],
+                "time_ago": _get_time_ago(item["timestamp"]),
+                "timestamp": item["timestamp"]
+            })
             
-            result = cleaned_data
-            
-            # ---------------------------------------------------------
-            # FALLBACK / SIMULATION (If real API is empty or blocked)
-            # ---------------------------------------------------------
-            if len(result) < 3:
-                # If market is quiet, generate some "Rekt" events to show the UI
-                # creating some noise around current price
-                base_prices = {"BTC": 96500, "ETH": 2450, "SOL": 180, "XRP": 2.4}
-                sides = ["Long", "Short"]
-                
-                now = datetime.now()
-                for _ in range(10):
-                    sym = random.choice(list(base_prices.keys()))
-                    side = random.choice(sides)
-                    price_var = random.uniform(-0.02, 0.02)
-                    price = base_prices[sym] * (1 + price_var)
-                    qty = random.uniform(0.1, 5.0) if sym == "BTC" else random.uniform(10, 500)
-                    val_usd = price * qty
-                    
-                    if val_usd < 1000: continue
-                    
-                    # Random time in last 15 mins
-                    t_offset = random.randint(10, 900)
-                    t_event = now - timedelta(seconds=t_offset)
-                    
-                    result.append({
-                        "symbol": sym,
-                        "side": side,
-                        "price": price,
-                        "amount_usd": val_usd,
-                        "time_ago": _get_time_ago(int(t_event.timestamp() * 1000)),
-                        "timestamp": int(t_event.timestamp() * 1000)
-                    })
-                
-                result.sort(key=lambda x: x["timestamp"], reverse=True)
-
-            result = result[:200]
-            _update_cache("liquidations", result)
-            return result
+        _update_cache("liquidations", cleaned_data)
+        return cleaned_data
 
     except Exception as e:
-        print(f"Error fetching liquidations: {e}")
+        print(f"Error fetching liquidations from service: {e}")
+        # Fallback to cache if exists
+        if _home_cache["liquidations"]["data"]:
+             return _home_cache["liquidations"]["data"]
         return []
 
 
@@ -497,40 +452,32 @@ async def fetch_onchain_data() -> Dict[str, Any]:
                 print(f"[OnChain] Flow exception: {exchange_flows}")
                 exchange_flows = {"btc_net_flow_usd": 0.0, "eth_net_flow_usd": 0.0}
 
-        # Extract values with smart fallbacks
+        # Extract values from API responses
         
-        # BTC: Blockchair "hodling_addresses" is TOTAL addresses (50M+), not active.
-        # Use transaction count as a better proxy for "Daily Active Users" (Active Addresses ~= Tx Count * 1.2 usually)
-        # or just use the tx count itself which is a robust activity metric.
-        btc_tx = btc_stats.get("n_tx", 0) or btc_stats.get("transactions_24h", 0) or 350000
-        btc_addresses = btc_tx  # Proxying Active Addresses with Tx Count for more realistic "Daily" number (~500k-800k)
+        # BTC: Use transaction count from Blockchain.com or Blockchair
+        btc_tx = btc_stats.get("n_tx", 0) or btc_stats.get("transactions_24h", 0)
+        btc_addresses = btc_tx  # Proxying Active Addresses with Tx Count
         
-        # ETH: Blockchair often returns 0 for addresses in free tier.
-        eth_tx = eth_stats.get("transactions_24h", 0) or 1100000
+        # ETH: Blockchair often returns 0 for addresses in free tier
+        eth_tx = eth_stats.get("transactions_24h", 0)
         eth_addresses = eth_stats.get("addresses", 0)
         if eth_addresses == 0:
-            eth_addresses = eth_tx # Fallback to tx count proxy (~1M)
+            eth_addresses = eth_tx  # Fallback to tx count from same API
 
-        mempool_bytes = btc_stats.get("mempool_size", 0) or 15000000
+        mempool_bytes = btc_stats.get("mempool_size", 0)
 
-        # Gas: prefer Etherscan, fall back to Blockchair
-        eth_gas = etherscan_gas if etherscan_gas > 0 else int(eth_stats.get("gas_price_gwei", 15))
-        if eth_gas <= 0:
-            eth_gas = 15  # absolute fallback
+        # Gas: prefer RPC, fall back to Blockchair
+        eth_gas = etherscan_gas if etherscan_gas > 0 else int(eth_stats.get("gas_price_gwei", 0))
 
-        # Calculate 24h change percentages
+        # Calculate real 24h change by comparing with previous cached values
         btc_change = 0.0
         eth_change = 0.0
         if _prev_onchain.get("btc_addresses") and _prev_onchain["btc_addresses"] > 0:
-            btc_change = round(
-                (btc_addresses - _prev_onchain["btc_addresses"]) / _prev_onchain["btc_addresses"] * 100, 2
-            )
+            btc_change = round(((btc_addresses - _prev_onchain["btc_addresses"]) / _prev_onchain["btc_addresses"]) * 100, 2)
         if _prev_onchain.get("eth_addresses") and _prev_onchain["eth_addresses"] > 0:
-            eth_change = round(
-                (eth_addresses - _prev_onchain["eth_addresses"]) / _prev_onchain["eth_addresses"] * 100, 2
-            )
+            eth_change = round(((eth_addresses - _prev_onchain["eth_addresses"]) / _prev_onchain["eth_addresses"]) * 100, 2)
 
-        # Store current values for next comparison
+        # Store current values (unused for change now, but kept for cache consistency if needed later)
         _prev_onchain["btc_addresses"] = btc_addresses
         _prev_onchain["eth_addresses"] = eth_addresses
 
@@ -557,11 +504,11 @@ async def fetch_onchain_data() -> Dict[str, Any]:
 
     except Exception as e:
         print(f"[OnChain] Fatal error in fetch_onchain_data: {e}")
-        # Return safe defaults so UI doesn't break
+        # Return empty defaults so UI doesn't break
         return {
-            "active_addresses": {"btc": 900000, "eth": 450000, "btc_change_24h": 0, "eth_change_24h": 0},
-            "transactions_24h": {"btc": 350000, "eth": 1100000},
-            "network_load": {"eth_gas_gwei": 15, "btc_mempool_size_vbytes": 15000000},
+            "active_addresses": {"btc": 0, "eth": 0, "btc_change_24h": 0, "eth_change_24h": 0},
+            "transactions_24h": {"btc": 0, "eth": 0},
+            "network_load": {"eth_gas_gwei": 0, "btc_mempool_size_vbytes": 0},
             "exchange_flows": {"btc_net_flow_usd": 0, "eth_net_flow_usd": 0},
         }
 

@@ -52,8 +52,7 @@ async def search_web(query: str, max_results: int = 5) -> List[Dict]:
                 logger.error(f"DDGS search failed: {e}")
                 return []
         
-        loop = asyncio.get_event_loop()
-        results = await loop.run_in_executor(None, do_search)
+        results = await asyncio.to_thread(do_search)
         
         # Cache results
         _search_cache[cache_key] = (datetime.now(), results)

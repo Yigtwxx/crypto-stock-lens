@@ -38,7 +38,17 @@ export default function FundingRates({ data, isLoading }: FundingRatesProps) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-oracle-border/50">
-                        {data.map((item) => {
+                        {[...data].sort((a, b) => {
+                            const priority = ['BTC', 'ETH'];
+                            const aIndex = priority.indexOf(a.symbol);
+                            const bIndex = priority.indexOf(b.symbol);
+
+                            if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+                            if (aIndex !== -1) return -1;
+                            if (bIndex !== -1) return 1;
+
+                            return 0; // Maintain original order for others
+                        }).map((item) => {
                             const isPositive = item.rate > 0;
                             const intensity = Math.min(Math.abs(item.rate) * 5000, 100); // Visual intensity
 

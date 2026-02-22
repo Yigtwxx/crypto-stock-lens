@@ -38,16 +38,28 @@ BINANCE_API = "https://api.binance.com/api/v3"
 
 # Important crypto events to track
 IMPORTANT_EVENTS = [
+    # 2025
+    {"date": "2025-01-20", "event": "Bitcoin ATH $109K - Trump Inauguration Rally", "symbol": "BTC", "type": "price_milestone"},
+    {"date": "2025-01-23", "event": "Trump Crypto Executive Order - Strategic Reserve", "symbol": "BTC", "type": "regulatory"},
+    {"date": "2025-01-17", "event": "Solana ETF Applications Filed", "symbol": "SOL", "type": "regulatory"},
+    {"date": "2025-02-12", "event": "Ethereum Pectra Upgrade Testnet", "symbol": "ETH", "type": "upgrade"},
+    # 2024
     {"date": "2024-04-20", "event": "Bitcoin Halving 2024", "symbol": "BTC", "type": "halving"},
     {"date": "2024-01-11", "event": "Bitcoin ETF Approved", "symbol": "BTC", "type": "regulatory"},
+    {"date": "2024-07-23", "event": "Ethereum ETF Approved", "symbol": "ETH", "type": "regulatory"},
+    {"date": "2024-03-13", "event": "Ethereum Dencun Upgrade", "symbol": "ETH", "type": "upgrade"},
+    # 2023
     {"date": "2023-03-10", "event": "SVB Bank Collapse", "symbol": "BTC", "type": "macro"},
+    {"date": "2023-04-12", "event": "Ethereum Shanghai Upgrade", "symbol": "ETH", "type": "upgrade"},
+    # 2022
     {"date": "2022-11-11", "event": "FTX Collapse", "symbol": "BTC", "type": "exchange"},
+    {"date": "2022-09-15", "event": "Ethereum Merge (PoS)", "symbol": "ETH", "type": "upgrade"},
+    {"date": "2022-05-09", "event": "Terra Luna Crash - UST Depeg", "symbol": "BTC", "type": "exchange"},
+    {"date": "2022-06-13", "event": "Celsius & 3AC Collapse", "symbol": "BTC", "type": "exchange"},
+    # 2021-2020
     {"date": "2021-11-10", "event": "Bitcoin ATH $69K", "symbol": "BTC", "type": "price_milestone"},
     {"date": "2021-04-14", "event": "Coinbase IPO", "symbol": "BTC", "type": "adoption"},
     {"date": "2020-05-11", "event": "Bitcoin Halving 2020", "symbol": "BTC", "type": "halving"},
-    {"date": "2024-03-13", "event": "Ethereum Dencun Upgrade", "symbol": "ETH", "type": "upgrade"},
-    {"date": "2023-04-12", "event": "Ethereum Shanghai Upgrade", "symbol": "ETH", "type": "upgrade"},
-    {"date": "2022-09-15", "event": "Ethereum Merge (PoS)", "symbol": "ETH", "type": "upgrade"},
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -571,7 +583,7 @@ def get_rag_context_v2(
 # INITIALIZATION & MAINTENANCE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-async def initialize_rag_v2(symbols: List[str] = ["BTC", "ETH", "SOL"]) -> Dict:
+async def initialize_rag_v2(symbols: List[str] = ["BTC", "ETH", "SOL", "XRP", "BNB", "ADA", "DOGE", "AVAX"]) -> Dict:
     """
     Initialize RAG 2.0 with historical data.
     Should be called once to populate the vector store.
@@ -621,4 +633,74 @@ def get_rag_stats() -> Dict:
         }
 
 
+async def auto_index_recent_news() -> int:
+    """
+    Auto-index recent news from the shared cache into RAG v2.
+    Called by background scheduler. Only indexes items not already in the database.
+    Returns number of newly indexed items.
+    """
+    try:
+        from utils import get_news_cache
+        
+        cached_news = get_news_cache()
+        if not cached_news:
+            return 0
+        
+        collection = get_collection(NEWS_COLLECTION)
+        existing_ids = set()
+        
+        # Get existing IDs to avoid duplicates
+        if collection.count() > 0:
+            try:
+                all_items = collection.get(include=[])
+                existing_ids = set(all_items.get("ids", []))
+            except Exception:
+                pass
+        
+        indexed = 0
+        for news_id, news_item in cached_news.items():
+            # Generate consistent ID from title
+            doc_id = hashlib.md5(f"{news_item.title}".encode()).hexdigest()[:16]
+            
+            if doc_id in existing_ids:
+                continue
+            
+            try:
+                # Create text for embedding
+                text = f"{news_item.title}. {news_item.summary or ''}"
+                embedding = generate_embedding(text)
+                
+                # Detect asset type from symbols
+                asset_type = news_item.asset_type or "crypto"
+                
+                metadata = {
+                    "title": news_item.title[:500],
+                    "symbol": "",  # Detected later
+                    "sentiment": "",  # Not analyzed yet
+                    "confidence": 0.0,
+                    "stored_at": datetime.now().isoformat(),
+                    "source": "auto_index",
+                    "asset_type": asset_type
+                }
+                
+                collection.upsert(
+                    ids=[doc_id],
+                    embeddings=[embedding],
+                    metadatas=[metadata],
+                    documents=[text[:2000]]
+                )
+                indexed += 1
+            except Exception:
+                continue
+        
+        if indexed > 0:
+            print(f"[RAG 2.0] ✓ Auto-indexed {indexed} news items into RAG")
+        
+        return indexed
+    except Exception as e:
+        print(f"[RAG 2.0] Auto-index error: {e}")
+        return 0
+
+
 print("[RAG 2.0] Service module loaded. Use initialize_rag_v2() to populate data.")
+

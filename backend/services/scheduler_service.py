@@ -48,9 +48,25 @@ def start_scheduler():
             replace_existing=True
         )
         
+        # Add RAG auto-indexing job - index news into vector DB every 30 minutes
+        async def rag_auto_index_job():
+            try:
+                from services.rag_v2_service import auto_index_recent_news
+                await auto_index_recent_news()
+            except Exception as e:
+                log_error(f"RAG auto-index error: {e}")
+        
+        scheduler.add_job(
+            rag_auto_index_job,
+            trigger=IntervalTrigger(minutes=30),
+            id="rag_auto_index_job",
+            name="RAG Auto-Index News",
+            replace_existing=True
+        )
+        
         scheduler.start()
         log_header("SCHEDULER STARTED")
-        log_success("Background tasks initialized (News fetch: every 2m)")
+        log_success("Background tasks initialized (News fetch: every 2m, RAG index: every 30m)")
 
 def stop_scheduler():
     """Stop the background scheduler."""

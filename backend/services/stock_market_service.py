@@ -142,136 +142,78 @@ _market_cap_cache: dict = {
 }
 MARKET_CAP_CACHE_DURATION = 1800  # 30 minutes
 
-# Yahoo Finance crumb session cache
-_yf_crumb_cache: dict = {
-    "crumb": None,
-    "cookies": None,
-    "timestamp": None
-}
 
-
-async def _get_yahoo_crumb(client: httpx.AsyncClient) -> tuple:
+def _parse_market_cap_string(value_str: str) -> float:
     """
-    Get a valid Yahoo Finance crumb + cookies for authenticated API calls.
-    Crumb is required for v7/v10 endpoints.
+    Parse abbreviated market cap strings like '3.88T', '458.23B', '12.3M'.
+    Returns value in USD.
     """
-    global _yf_crumb_cache
+    if not value_str or not isinstance(value_str, str):
+        return 0
     
-    # Check crumb cache (valid for 1 hour)
-    if (_yf_crumb_cache["crumb"] and _yf_crumb_cache["timestamp"] and
-            (datetime.now() - _yf_crumb_cache["timestamp"]).total_seconds() < 3600):
-        return _yf_crumb_cache["crumb"], _yf_crumb_cache["cookies"]
+    value_str = value_str.strip().replace(",", "")
     
+    multipliers = {
+        'T': 1e12,
+        'B': 1e9,
+        'M': 1e6,
+        'K': 1e3,
+    }
+    
+    for suffix, multiplier in multipliers.items():
+        if value_str.upper().endswith(suffix):
+            try:
+                num = float(value_str[:-1])
+                return num * multiplier
+            except ValueError:
+                return 0
+    
+    # No suffix — try parsing as plain number
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        
-        # Step 1: Get cookies from Yahoo Finance
-        resp = await client.get("https://finance.yahoo.com/quote/AAPL/", headers=headers, follow_redirects=True)
-        cookies = dict(resp.cookies)
-        
-        # Step 2: Get crumb using cookies
-        crumb_resp = await client.get(
-            "https://query2.finance.yahoo.com/v1/test/getcrumb",
-            headers=headers,
-            cookies=cookies
-        )
-        
-        if crumb_resp.status_code == 200:
-            crumb = crumb_resp.text.strip()
-            if crumb and len(crumb) < 50:
-                _yf_crumb_cache["crumb"] = crumb
-                _yf_crumb_cache["cookies"] = cookies
-                _yf_crumb_cache["timestamp"] = datetime.now()
-                return crumb, cookies
-    except Exception as e:
-        print(f"Error getting Yahoo crumb: {e}")
-    
-    return None, None
+        return float(value_str)
+    except ValueError:
+        return 0
 
 
 async def _fetch_batch_market_caps(client: httpx.AsyncClient, symbols: list) -> dict:
     """
-    Batch-fetch market caps for all symbols using Yahoo Finance v7 quote API with crumb auth.
+    Fetch market caps for all symbols from stockanalysis.com free API.
     Returns dict of {symbol: market_cap_usd}.
     """
     global _market_cap_cache
     
-    # Check if entire cache is still fresh
+    # Check if cache is still fresh
     if (_market_cap_cache["timestamp"] and 
             (datetime.now() - _market_cap_cache["timestamp"]).total_seconds() < MARKET_CAP_CACHE_DURATION and
-            len(_market_cap_cache["data"]) >= len(symbols) * 0.8):
+            len(_market_cap_cache["data"]) >= len(symbols) * 0.5):
         return _market_cap_cache["data"]
     
     result = {}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "application/json"
+    }
     
-    # Strategy 1: Yahoo Finance v7 quote with crumb (batch — single request for all symbols)
-    try:
-        crumb, cookies = await _get_yahoo_crumb(client)
-        if crumb and cookies:
-            symbols_str = ",".join(symbols)
+    for symbol in symbols:
+        try:
             resp = await client.get(
-                "https://query2.finance.yahoo.com/v7/finance/quote",
-                params={
-                    "symbols": symbols_str,
-                    "fields": "symbol,marketCap",
-                    "crumb": crumb
-                },
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                },
-                cookies=cookies
+                f"https://api.stockanalysis.com/api/symbol/s/{symbol}/overview",
+                headers=headers
             )
-            
             if resp.status_code == 200:
-                data = resp.json()
-                quotes = data.get("quoteResponse", {}).get("result", [])
-                for quote in quotes:
-                    sym = quote.get("symbol", "")
-                    mcap = quote.get("marketCap", 0)
-                    if sym and mcap and mcap > 0:
-                        result[sym] = mcap
-                
-                if result:
-                    _market_cap_cache["data"].update(result)
-                    _market_cap_cache["timestamp"] = datetime.now()
-                    print(f"✓ Fetched {len(result)} market caps via Yahoo v7 batch")
-                    return _market_cap_cache["data"]
-    except Exception as e:
-        print(f"Yahoo v7 batch market cap failed: {e}")
+                data = resp.json().get("data", {})
+                mcap_str = data.get("marketCap", "")
+                if mcap_str:
+                    mcap = _parse_market_cap_string(str(mcap_str))
+                    if mcap > 0:
+                        result[symbol] = mcap
+        except Exception:
+            continue
     
-    # Strategy 2: Yahoo Finance v8 chart API — get sharesOutstanding and calculate
-    try:
-        for symbol in symbols:
-            if symbol in result:
-                continue
-            try:
-                resp = await client.get(
-                    f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
-                    params={"interval": "1d", "range": "1d"},
-                    headers={
-                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-                        "Accept": "application/json"
-                    }
-                )
-                if resp.status_code == 200:
-                    chart_data = resp.json()
-                    meta = chart_data.get("chart", {}).get("result", [{}])[0].get("meta", {})
-                    price = meta.get("regularMarketPrice", 0) or 0
-                    # v8 chart often includes sharesOutstanding in meta
-                    shares = meta.get("sharesOutstanding", 0) or 0
-                    if price > 0 and shares > 0:
-                        result[symbol] = price * shares
-            except Exception:
-                continue
-        
-        if result:
-            _market_cap_cache["data"].update(result)
-            _market_cap_cache["timestamp"] = datetime.now()
-            print(f"✓ Calculated {len(result)} market caps from v8 sharesOutstanding")
-    except Exception as e:
-        print(f"v8 shares-based market cap failed: {e}")
+    if result:
+        _market_cap_cache["data"].update(result)
+        _market_cap_cache["timestamp"] = datetime.now()
+        print(f"✓ Fetched {len(result)} market caps from stockanalysis.com")
     
     return _market_cap_cache["data"]
 

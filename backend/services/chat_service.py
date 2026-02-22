@@ -248,6 +248,10 @@ async def build_context_string(market_data: Dict, web_context: str, message: str
     if web_context:
         parts.append(f"  <web_search>\n{web_context}\n  </web_search>")
     
+    # RAG v3/v4 Advanced Context
+    if advanced_rag_context := market_data.get("advanced_rag"):
+        parts.append(f"  <advanced_agents>\n{advanced_rag_context}\n  </advanced_agents>")
+    
     parts.append("</context>")
     return "\n".join(parts)
 
@@ -278,6 +282,45 @@ async def chat_with_oracle(
 
     # Step 2: Fetch market data based on context
     market_data = await fetch_all_market_data(detected_symbols, context_type)
+    market_data["advanced_rag"] = ""
+    
+    # Step 2.5: Trigger RAG v3/v4 Advanced Agents based on intent
+    advanced_context = []
+    
+    # 2.5a: Comparative Analysis (v4) - e.g. "SOL vs ETH"
+    if " vs " in message.lower() or "karşılaştır" in message.lower():
+        if len(detected_symbols) >= 2:
+            try:
+                from services.rag_v4_service import compare_assets
+                cmp_result = await compare_assets(detected_symbols[0], detected_symbols[1])
+                if cmp_result.get("summary"):
+                    advanced_context.append(f"KARŞILAŞTIRMA AJANI (v4):\n{cmp_result['summary']}")
+            except Exception as e:
+                print(f"RAG v4 Compare error: {e}")
+                
+    # 2.5b: Scenario Simulation (v4) - e.g. "Eğer faiz düşerse BTC ne olur?"
+    scenario_kws = ["eğer", "olursa", "senaryo", "düşerse", "çıkarsa", "neler olur", "farz edelim"]
+    if any(kw in message.lower() for kw in scenario_kws):
+        try:
+            from services.rag_v4_service import simulate_scenario
+            sim_result = await simulate_scenario(message, primary_symbol or "BTC")
+            if sim_result.get("simulation_summary"):
+                advanced_context.append(f"SİMÜLASYON AJANI (v4):\n{sim_result['simulation_summary']}")
+        except Exception as e:
+            print(f"RAG v4 Simulate error: {e}")
+            
+    # 2.5c: Price Movement Insights (v3) - If primary symbol exists and no other agent fired
+    if primary_symbol and not advanced_context:
+        try:
+            from services.rag_v3_service import get_price_movement_reason
+            reason_result = await get_price_movement_reason(primary_symbol)
+            if reason_result.get("summary"):
+                advanced_context.append(f"İÇGÖRÜ AJANI (v3):\n{reason_result['summary']}")
+        except Exception as e:
+            print(f"RAG v3 Insight error: {e}")
+            
+    if advanced_context:
+        market_data["advanced_rag"] = "\n\n".join(advanced_context)
     
     # Step 3: Get web search context
     web_context = ""
@@ -286,23 +329,17 @@ async def chat_with_oracle(
     except Exception as e:
         print(f"Web search error: {e}")
     
-    # Step 4: Get RAG 2.0 historical context
+    # Step 4: Get RAG 2.0 historical context (always active for richer responses)
     rag_context = ""
-    # Check if query is about historical events or patterns
-    historical_keywords = ["geçen", "önceki", "tarihte", "halving", "ath", "dip", "crash", 
-                          "geçmiş", "nasıl davran", "ne oldu", "benzer", "daha önce"]
-    is_historical_query = any(kw in message.lower() for kw in historical_keywords)
-    
-    if is_historical_query or primary_symbol:
-        try:
-            from services.rag_v2_service import get_rag_context_v2
-            rag_context = get_rag_context_v2(
-                query=message,
-                symbol=primary_symbol,
-                context_type="all"
-            )
-        except Exception as e:
-            print(f"RAG 2.0 context error: {e}")
+    try:
+        from services.rag_v2_service import get_rag_context_v2
+        rag_context = get_rag_context_v2(
+            query=message,
+            symbol=primary_symbol,
+            context_type="all"
+        )
+    except Exception as e:
+        print(f"RAG 2.0 context error: {e}")
     
     # Step 5: Build comprehensive context
     full_context = await build_context_string(market_data, web_context, message, rag_context)
@@ -398,6 +435,10 @@ Yanıtın:"""
                     sources_used.append("Web Arama")
                 if market_data["fear_greed"]:
                     sources_used.append("Sentiment")
+                if rag_context:
+                    sources_used.append("Tarihsel Analiz (RAG)")
+                if market_data.get("advanced_rag"):
+                    sources_used.append("Gelişmiş AI Ajanları")
                 
                 return {
                     "response": clean_response,

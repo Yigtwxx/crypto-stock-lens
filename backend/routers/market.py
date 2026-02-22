@@ -23,6 +23,8 @@ async def get_fear_greed():
     Values: 0-25 Extreme Fear, 26-46 Fear, 47-54 Neutral, 55-75 Greed, 76-100 Extreme Greed
     """
     data = await fetch_fear_greed_index()
+    if data is None:
+        raise HTTPException(status_code=503, detail="Fear & Greed Index is temporarily unavailable")
     return FearGreedData(**data)
 
 

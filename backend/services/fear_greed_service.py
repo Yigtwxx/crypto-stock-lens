@@ -62,10 +62,5 @@ async def fetch_fear_greed_index() -> dict:
     except Exception as e:
         print(f"Error fetching Fear & Greed Index: {e}")
     
-    # Return fallback data if API fails
-    return {
-        "value": 50,
-        "classification": "Neutral",
-        "timestamp": datetime.now().isoformat(),
-        "history": []
-    }
+    # Return None when API fails and no cache
+    return None

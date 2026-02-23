@@ -38,8 +38,9 @@ export async function analyzeNews(newsId: string, currentPrice?: number): Promis
 }
 
 export async function verifyOnChain(predictionHash: string): Promise<{ txHash: string }> {
-    // Placeholder for blockchain verification
-    // Will be implemented in Phase 3
+    // ⚠️ PLACEHOLDER: Sahte blockchain doğrulaması
+    // Faz 3'te gerçek smart contract entegrasyonu ile değiştirilecek
+    console.warn('[verifyOnChain] Bu fonksiyon henüz placeholder — gerçek blockchain doğrulaması Faz 3\'te uygulanacak.');
     return new Promise((resolve) => {
         setTimeout(() => {
             resolve({ txHash: `0x${predictionHash.slice(0, 64)}` });

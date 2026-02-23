@@ -140,6 +140,20 @@ export NVM_DIR="$HOME/.nvm"
 # Also check common node paths
 export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/*/bin:$PATH"
 
+# Function to kill a process and all its children
+kill_tree() {
+    local pid=$1
+    # Kill all child processes first
+    pkill -P $pid 2>/dev/null
+    # Then kill the parent
+    kill $pid 2>/dev/null
+    # Wait briefly for processes to die
+    sleep 0.5
+    # Force kill if still alive
+    kill -9 $pid 2>/dev/null 2>&1
+    pkill -9 -P $pid 2>/dev/null 2>&1
+}
+
 # Function to cleanup on exit
 cleanup() {
     echo ""
@@ -149,14 +163,18 @@ cleanup() {
     echo ""
     
     if [ ! -z "$BACKEND_PID" ]; then
-        kill $BACKEND_PID 2>/dev/null
+        kill_tree $BACKEND_PID
         print_status "info" "Backend stopped"
     fi
     
     if [ ! -z "$FRONTEND_PID" ]; then
-        kill $FRONTEND_PID 2>/dev/null
+        kill_tree $FRONTEND_PID
         print_status "info" "Frontend stopped"
     fi
+    
+    # Also kill any remaining processes on the ports as a safety net
+    lsof -ti:8000 2>/dev/null | xargs kill -9 2>/dev/null
+    lsof -ti:3000 2>/dev/null | xargs kill -9 2>/dev/null
     
     echo ""
     echo -e "    ${GRAY}Thank you for using Oracle-X! 👋${NC}"
@@ -164,7 +182,7 @@ cleanup() {
     exit 0
 }
 
-trap cleanup SIGINT SIGTERM
+trap cleanup SIGINT SIGTERM EXIT
 
 # Print banner
 print_banner

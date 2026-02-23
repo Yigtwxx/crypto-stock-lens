@@ -55,9 +55,11 @@ async def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
         }
         
         try:
-            supabase.table("profiles").insert(default_profile).execute()
+            # Use upsert to handle race conditions or existing profiles safely
+            supabase.table("profiles").upsert(default_profile).execute()
         except Exception as insert_error:
-            print(f"Could not create profile (may already exist): {insert_error}")
+            # Even with upsert, we might hit some issues, but this is safer
+            print(f"Could not create profile (may already exist or RLS): {insert_error}")
         
         # Return default profile with computed fields
         default_profile["ai_query_limit"] = 5

@@ -34,32 +34,8 @@ def get_supabase():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# USER PROFILE HELPERS
+# NOTE: User profile CRUD is handled by profile_service.py
 # ═══════════════════════════════════════════════════════════════════════════════
-
-async def get_user_profile(user_id: str) -> Optional[Dict]:
-    """Get user profile from database."""
-    try:
-        supabase = get_supabase()
-        response = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-        return response.data
-    except Exception as e:
-        print(f"Error fetching user profile: {e}")
-        return None
-
-
-async def update_user_profile(user_id: str, data: Dict) -> bool:
-    """Update user profile in database."""
-    try:
-        supabase = get_supabase()
-        supabase.table("profiles").upsert({
-            "id": user_id,
-            **data
-        }).execute()
-        return True
-    except Exception as e:
-        print(f"Error updating user profile: {e}")
-        return False
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -290,8 +266,9 @@ async def save_chat_message(
             data["session_id"] = session_id
             
             # Update session timestamp
+            from datetime import datetime as dt
             supabase.table("chat_sessions").update({
-                "updated_at": "now()"
+                "updated_at": dt.utcnow().isoformat()
             }).eq("id", session_id).execute()
         
         if thinking_time is not None:

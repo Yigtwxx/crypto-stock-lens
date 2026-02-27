@@ -50,6 +50,9 @@ interface OracleStore {
     // Chart state
     chartSymbol: string;
 
+    // Recent symbols — last 10 viewed symbols (persisted)
+    recentSymbols: string[];
+
     // Analysis state
     analysis: SentimentAnalysis | null;
     isLoadingAnalysis: boolean;
@@ -93,6 +96,7 @@ export const useStore = create<OracleStore>()(
             selectedNews: null,
             isLoadingNews: false,
             chartSymbol: 'BINANCE:BTCUSDT',
+            recentSymbols: [],
             analysis: null,
             isLoadingAnalysis: false,
             currentPrice: null,
@@ -113,14 +117,21 @@ export const useStore = create<OracleStore>()(
                 set({ newsItems: sortedItems });
             },
 
-            selectNews: (news) => set({
-                selectedNews: news,
-                chartSymbol: news.symbol,
-                analysis: null,
-                isLoadingAnalysis: true,
+            selectNews: (news) => set((state) => {
+                const updated = [news.symbol, ...state.recentSymbols.filter(s => s !== news.symbol)].slice(0, 10);
+                return {
+                    selectedNews: news,
+                    chartSymbol: news.symbol,
+                    recentSymbols: updated,
+                    analysis: null,
+                    isLoadingAnalysis: true,
+                };
             }),
 
-            setChartSymbol: (symbol) => set({ chartSymbol: symbol }),
+            setChartSymbol: (symbol) => set((state) => {
+                const updated = [symbol, ...state.recentSymbols.filter(s => s !== symbol)].slice(0, 10);
+                return { chartSymbol: symbol, recentSymbols: updated };
+            }),
 
             setAnalysis: (analysis) => set({
                 analysis,
@@ -182,7 +193,9 @@ export const useStore = create<OracleStore>()(
             name: 'oracle-x-storage',
             partialize: (state) => ({
                 priceAlerts: state.priceAlerts,
-                settings: state.settings
+                settings: state.settings,
+                chartSymbol: state.chartSymbol,
+                recentSymbols: state.recentSymbols,
             }),
         }
     )

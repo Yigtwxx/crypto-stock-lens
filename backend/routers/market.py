@@ -131,3 +131,20 @@ async def get_heatmap_data():
     except Exception as e:
         print(f"Error fetching heatmap data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/asset-detail/{symbol}")
+async def get_asset_detail(symbol: str, type: str = "crypto"):
+    """
+    Get detailed asset information.
+    
+    - **crypto**: CoinGecko data (description, categories, links, ATH/ATL, supply)
+    - **stock/nasdaq**: Yahoo Finance data (company info, sector, P/E, 52-week range)
+    """
+    from services.asset_detail_service import fetch_asset_detail
+    
+    data = await fetch_asset_detail(symbol, type)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"Asset '{symbol}' not found")
+    return data
+

@@ -37,15 +37,9 @@ export async function analyzeNews(newsId: string, currentPrice?: number): Promis
     return response.json();
 }
 
-export async function verifyOnChain(predictionHash: string): Promise<{ txHash: string }> {
-    // ⚠️ PLACEHOLDER: Sahte blockchain doğrulaması
-    // Faz 3'te gerçek smart contract entegrasyonu ile değiştirilecek
-    console.warn('[verifyOnChain] Bu fonksiyon henüz placeholder — gerçek blockchain doğrulaması Faz 3\'te uygulanacak.');
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve({ txHash: `0x${predictionHash.slice(0, 64)}` });
-        }, 2000);
-    });
+export async function verifyOnChain(_predictionHash: string): Promise<{ txHash: string }> {
+    // On-chain doğrulama henüz uygulanmadı — Faz 3'te smart contract entegrasyonu ile aktif edilecek.
+    throw new Error('On-chain verification is not yet implemented. Coming in Phase 3.');
 }
 
 /**
@@ -294,4 +288,102 @@ export async function deleteWatchlist(id: string): Promise<void> {
         method: "DELETE"
     });
     if (!res.ok) throw new Error("Failed to delete watchlist");
+}
+
+
+// ==========================================
+// ASSET DETAIL
+// ==========================================
+
+export interface AssetDetail {
+    type: 'crypto' | 'stock';
+    symbol: string;
+    name: string;
+    logo: string;
+    description: string;
+
+    // Crypto-specific
+    categories?: string[];
+    genesis_date?: string;
+    hashing_algorithm?: string;
+    circulating_supply?: number;
+    total_supply?: number;
+    max_supply?: number | null;
+    ath?: number;
+    ath_change_percentage?: number;
+    ath_date?: string;
+    atl?: number;
+    atl_change_percentage?: number;
+    atl_date?: string;
+    fully_diluted_valuation?: number;
+    // Crypto community
+    twitter_followers?: number;
+    reddit_subscribers?: number;
+    telegram_channel_user_count?: number;
+    // Crypto developer
+    github_stars?: number;
+    github_forks?: number;
+    github_subscribers?: number;
+    github_total_issues?: number;
+    github_closed_issues?: number;
+    github_pull_requests_merged?: number;
+    commit_count_4_weeks?: number;
+    // Crypto sentiment
+    sentiment_votes_up_percentage?: number;
+    sentiment_votes_down_percentage?: number;
+    watchlist_portfolio_users?: number;
+
+    // Stock-specific
+    sector?: string;
+    industry?: string;
+    country?: string;
+    employees?: number;
+    website?: string;
+    pe_ratio?: number | null;
+    dividend_yield?: number | null;
+    fifty_two_week_high?: number;
+    fifty_two_week_low?: number;
+    // Stock financials
+    revenue?: number | null;
+    net_income?: number | null;
+    earnings_per_share?: number | null;
+    forward_eps?: number | null;
+    forward_pe?: number | null;
+    profit_margin?: number | null;
+    operating_margin?: number | null;
+    beta?: number | null;
+    book_value?: number | null;
+    price_to_book?: number | null;
+    free_cash_flow?: number | null;
+    debt_to_equity?: number | null;
+    return_on_equity?: number | null;
+    // Analyst
+    target_high_price?: number | null;
+    target_low_price?: number | null;
+    target_mean_price?: number | null;
+    recommendation?: string;
+    // Moving averages
+    fifty_day_average?: number | null;
+    two_hundred_day_average?: number | null;
+
+    // Common market data
+    market_cap_rank?: number;
+    price: number;
+    market_cap: number;
+    total_volume: number;
+    change_24h: number;
+    change_7d?: number;
+    change_30d?: number;
+    change_1y?: number;
+    high_24h: number;
+    low_24h: number;
+
+    links: Record<string, string>;
+    timestamp: string;
+}
+
+export async function fetchAssetDetail(symbol: string, type: 'crypto' | 'stock' = 'crypto'): Promise<AssetDetail> {
+    const response = await fetch(`${API_BASE}/api/asset-detail/${symbol}?type=${type}`);
+    if (!response.ok) throw new Error(`Failed to fetch asset detail for ${symbol}`);
+    return response.json();
 }

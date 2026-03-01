@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { fetchFundingRates, fetchLiquidations, fetchOnChainData, fetchMacroCalendar, FundingRate, Liquidation, OnChainData, MacroEvent } from '@/lib/api';
+import { useOnChainData, useFundingRates, useLiquidations, useMacroCalendar } from '@/hooks/queries';
 import OnChainStats from './home/OnChainStats';
 import FundingRates from './home/FundingRates';
 import LiquidationFeed from './home/LiquidationFeed';
@@ -10,39 +9,20 @@ import WatchlistWidget from './home/WatchlistWidget';
 import { RefreshCw } from 'lucide-react';
 
 export default function HomePage() {
-    const [onChainData, setOnChainData] = useState<OnChainData | null>(null);
-    const [fundingData, setFundingData] = useState<FundingRate[]>([]);
-    const [liquidationData, setLiquidationData] = useState<Liquidation[]>([]);
-    const [macroEvents, setMacroEvents] = useState<MacroEvent[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+    const onChain = useOnChainData();
+    const funding = useFundingRates();
+    const liquidations = useLiquidations();
+    const macro = useMacroCalendar();
 
-    const loadData = async () => {
-        setIsLoading(true);
-        try {
-            const [onChain, funding, liquidations, macro] = await Promise.all([
-                fetchOnChainData(),
-                fetchFundingRates(),
-                fetchLiquidations(),
-                fetchMacroCalendar()
-            ]);
-            setOnChainData(onChain);
-            setFundingData(funding);
-            setLiquidationData(liquidations);
-            setMacroEvents(macro);
-            setLastUpdated(new Date().toLocaleTimeString());
-        } catch (error) {
-            console.error("Failed to fetch home data", error);
-        } finally {
-            setIsLoading(false);
-        }
+    const isLoading = onChain.isLoading || funding.isLoading || liquidations.isLoading || macro.isLoading;
+    const isFetching = onChain.isFetching || funding.isFetching || liquidations.isFetching || macro.isFetching;
+
+    const handleRefresh = () => {
+        onChain.refetch();
+        funding.refetch();
+        liquidations.refetch();
+        macro.refetch();
     };
-
-    useEffect(() => {
-        loadData();
-        // Set initial timestamp on client only to avoid hydration mismatch
-        setLastUpdated(new Date().toLocaleTimeString());
-    }, []);
 
     return (
         <div className="h-full overflow-y-auto bg-oracle-darker p-6">
@@ -54,31 +34,33 @@ export default function HomePage() {
                         <p className="text-gray-400 text-sm mt-1">Real-time on-chain data, funding rates, and macroeconomic events.</p>
                     </div>
                     <div className="flex items-center gap-4">
-                        {lastUpdated && (
-                            <span className="text-xs text-gray-500 font-mono">Updated: {lastUpdated}</span>
+                        {onChain.dataUpdatedAt > 0 && (
+                            <span className="text-xs text-gray-500 font-mono">
+                                Updated: {new Date(onChain.dataUpdatedAt).toLocaleTimeString()}
+                            </span>
                         )}
                         <button
-                            onClick={loadData}
-                            className={`p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5 ${isLoading ? 'animate-spin' : ''}`}
+                            onClick={handleRefresh}
+                            className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
                         >
-                            <RefreshCw className="w-4 h-4 text-gray-400" />
+                            <RefreshCw className={`w-4 h-4 text-gray-400 ${isFetching ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
                 </div>
 
                 {/* Top Row: On-Chain Stats */}
-                <OnChainStats data={onChainData} isLoading={isLoading} />
+                <OnChainStats data={onChain.data ?? null} isLoading={isLoading} />
 
                 {/* Middle Row: 3-Column Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
                     {/* Col 1: Funding Rates */}
-                    <FundingRates data={fundingData} isLoading={isLoading} />
+                    <FundingRates data={funding.data ?? []} isLoading={isLoading} />
 
                     {/* Col 2: Liquidations */}
-                    <LiquidationFeed data={liquidationData} isLoading={isLoading} />
+                    <LiquidationFeed data={liquidations.data ?? []} isLoading={isLoading} />
 
                     {/* Col 3: Macro Calendar */}
-                    <MacroCalendar data={macroEvents} isLoading={isLoading} />
+                    <MacroCalendar data={macro.data ?? []} isLoading={isLoading} />
                 </div>
 
                 {/* Bottom Row: Watchlist */}

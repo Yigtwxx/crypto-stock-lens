@@ -62,7 +62,6 @@ coverage/
 logs/
 
 # ChromaDB / RAG Data
-backend/data/
 data/
 *.sqlite3
 *.bin

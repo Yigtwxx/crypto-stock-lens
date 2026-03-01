@@ -12,5 +12,19 @@
         "type": "STOCK"
       }
     ]
+  },
+  {
+    "id": "2",
+    "name": "mm",
+    "items": [
+      {
+        "symbol": "BTC",
+        "type": "CRYPTO"
+      },
+      {
+        "symbol": "NVDA",
+        "type": "STOCK"
+      }
+    ]
   }
 ]

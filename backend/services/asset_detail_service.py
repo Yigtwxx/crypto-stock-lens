@@ -4,12 +4,15 @@ Fetches detailed information about crypto and stock assets from real APIs.
 - Crypto: CoinGecko /coins/{id} API
 - Stocks: Yahoo Finance v8 API
 """
+import logging
 import httpx
 import asyncio
 from datetime import datetime
 from typing import Optional, Dict, Any
 
 from services.cache import home_cache
+
+logger = logging.getLogger(__name__)
 
 # Cache duration: 5 minutes
 DETAIL_CACHE_DURATION = 300
@@ -114,7 +117,7 @@ async def fetch_crypto_detail(symbol: str) -> Optional[Dict[str, Any]]:
             )
             
             if resp.status_code != 200:
-                print(f"CoinGecko detail API returned {resp.status_code} for {coin_id}")
+                logger.warning(f"CoinGecko detail API returned {resp.status_code} for {coin_id}")
                 return None
             
             data = resp.json()
@@ -208,7 +211,7 @@ async def fetch_crypto_detail(symbol: str) -> Optional[Dict[str, Any]]:
             return result
     
     except Exception as e:
-        print(f"Error fetching crypto detail for {symbol}: {e}")
+        logger.error(f"Error fetching crypto detail for {symbol}: {e}")
         return None
 
 
@@ -363,9 +366,9 @@ async def fetch_stock_detail(symbol: str) -> Optional[Dict[str, Any]]:
                         if not volume:
                             volume = _raw_val(detail.get("volume")) or 0
                 else:
-                    print(f"Yahoo quoteSummary returned {summary_resp.status_code} for {symbol}")
+                    logger.warning(f"Yahoo quoteSummary returned {summary_resp.status_code} for {symbol}")
             except Exception as e:
-                print(f"Yahoo quoteSummary failed for {symbol}: {e}")
+                logger.error(f"Yahoo quoteSummary failed for {symbol}: {e}")
             
             # If market_cap still 0, calculate from shares outstanding
             if market_cap == 0:
@@ -437,7 +440,7 @@ async def fetch_stock_detail(symbol: str) -> Optional[Dict[str, Any]]:
             return result
     
     except Exception as e:
-        print(f"Error fetching stock detail for {symbol}: {e}")
+        logger.error(f"Error fetching stock detail for {symbol}: {e}")
         return None
 
 

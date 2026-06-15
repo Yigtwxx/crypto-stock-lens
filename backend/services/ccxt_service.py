@@ -5,10 +5,13 @@ Connects to 100+ exchanges via CCXT library for price comparison and arbitrage d
 Supported exchanges include: Binance, Coinbase Pro, Kraken, OKX, KuCoin, Bybit, Gate.io, Huobi
 """
 
+import logging
 import asyncio
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 import ccxt.async_support as ccxt
+
+logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION
@@ -83,7 +86,7 @@ def _get_exchange_instance(exchange_id: str) -> Optional[ccxt.Exchange]:
         })
         return exchange
     except Exception as e:
-        print(f"Failed to create exchange instance for {exchange_id}: {e}")
+        logger.error(f"Failed to create exchange instance for {exchange_id}: {e}")
         return None
 
 
@@ -162,16 +165,16 @@ async def fetch_ticker(exchange_id: str, symbol: str) -> Optional[Dict]:
         return result
         
     except ccxt.BadSymbol:
-        print(f"Symbol {symbol} not found on {exchange_id}")
+        logger.info(f"Symbol {symbol} not found on {exchange_id}")
         return None
     except ccxt.NetworkError as e:
-        print(f"Network error fetching {symbol} from {exchange_id}: {e}")
+        logger.error(f"Network error fetching {symbol} from {exchange_id}: {e}")
         return None
     except ccxt.ExchangeError as e:
-        print(f"Exchange error fetching {symbol} from {exchange_id}: {e}")
+        logger.error(f"Exchange error fetching {symbol} from {exchange_id}: {e}")
         return None
     except Exception as e:
-        print(f"Unexpected error fetching {symbol} from {exchange_id}: {e}")
+        logger.error(f"Unexpected error fetching {symbol} from {exchange_id}: {e}")
         return None
     finally:
         await _close_exchange(exchange)
@@ -202,7 +205,7 @@ async def fetch_multi_exchange_prices(
     valid_results = []
     for i, result in enumerate(results):
         if isinstance(result, Exception):
-            print(f"Error fetching from {exchanges[i]}: {result}")
+            logger.error(f"Error fetching from {exchanges[i]}: {result}")
             continue
         if result and result.get("price"):
             valid_results.append(result)
@@ -343,7 +346,7 @@ async def get_exchange_markets(exchange_id: str) -> List[str]:
         await exchange.load_markets()
         return list(exchange.symbols)
     except Exception as e:
-        print(f"Error loading markets for {exchange_id}: {e}")
+        logger.error(f"Error loading markets for {exchange_id}: {e}")
         return []
     finally:
         await _close_exchange(exchange)

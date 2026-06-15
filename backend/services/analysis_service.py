@@ -1,4 +1,5 @@
 
+import logging
 import json
 import os
 import asyncio
@@ -8,6 +9,8 @@ from services.ollama_service import generate_completion
 from services.news_service import fetch_all_news
 from services.market_overview_service import fetch_market_overview
 from services.fear_greed_service import fetch_fear_greed_index
+
+logger = logging.getLogger(__name__)
 
 REPORTS_FILE = "data/analysis_reports.json"
 NOTES_FILE = "data/user_notes.json"
@@ -45,7 +48,7 @@ async def generate_market_report(timeframe: str) -> str:
         market_data = await fetch_market_overview()
         fear_greed = await fetch_fear_greed_index()
     except Exception as e:
-        print(f"Error fetching data for report: {e}")
+        logger.error(f"Error fetching data for report: {e}")
         return "Failed to generate report due to data fetching error."
 
     # Filter news based on timeframe

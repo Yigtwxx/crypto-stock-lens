@@ -3,26 +3,30 @@ Home Page Service
 Fetches Funding Rates, Liquidations (Binance), and On-Chain Data.
 """
 
+import os
+import asyncio
+import json
+import logging
 import httpx
 from datetime import datetime
 from typing import List, Dict, Any
 import xml.etree.ElementTree as ET
 
+from services.cache import home_cache
+
+logger = logging.getLogger(__name__)
+
 # ==========================================
-# CONSTANTS & CACHE
+# CONSTANTS
 # ==========================================
 
 BINANCE_FUTURES_API = "https://fapi.binance.com"
 
-# Cache structure
-_home_cache: Dict[str, Any] = {
-    "funding": {"data": None, "timestamp": None},
-    "liquidations": {"data": None, "timestamp": None},
-    "onchain": {"data": None, "timestamp": None},
-    "macro": {"data": None, "timestamp": None},
-}
-
-CACHE_TTL = 60  # seconds
+# TTL constants (seconds)
+TTL_FUNDING = 60
+TTL_LIQUIDATIONS = 10
+TTL_ONCHAIN = 60
+TTL_MACRO = 3600
 
 
 # ==========================================
@@ -35,11 +39,10 @@ async def fetch_macro_calendar() -> List[Dict]:
     Source: https://nfs.faireconomy.media/ff_calendar_thisweek.xml
     Returns: List of high/medium impact events for USD.
     """
-    global _home_cache
-    
-    # Cache for 1 hour (data is weekly/daily, doesn't change every second)
-    if _is_cache_valid("macro", ttl_override=3600):
-        return _home_cache["macro"]["data"]
+    # Cache for 1 hour (data is weekly/daily)
+    cached = home_cache.get("macro")
+    if cached is not None:
+        return cached
 
     url = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"
     events = []
@@ -51,25 +54,25 @@ async def fetch_macro_calendar() -> List[Dict]:
             if response.status_code == 200:
                 # Parse XML
                 root = ET.fromstring(response.content)
-                
+
                 for event in root.findall("event"):
                     country = event.find("country").text
-                    
+
                     # Filter for USD events only
                     if country != "USD":
                         continue
-                        
+
                     impact = event.find("impact").text
                     # Filter for Medium/High impact to reduce noise
                     if impact not in ["Medium", "High"]:
                         continue
-                        
+
                     title = event.find("title").text
                     date_str = event.find("date").text  # Format: MM-DD-YYYY
                     time_str = event.find("time").text  # Format: 1:30pm
                     forecast = event.find("forecast").text or ""
                     previous = event.find("previous").text or ""
-                    
+
                     events.append({
                         "title": title,
                         "country": country,
@@ -79,21 +82,22 @@ async def fetch_macro_calendar() -> List[Dict]:
                         "forecast": forecast,
                         "previous": previous
                     })
-                
+
                 # Sort by date and time (though XML is usually sorted)
                 # We can rely on source order for now
-                
+
                 # Update cache
-                _update_cache("macro", events)
+                home_cache.set("macro", events, TTL_MACRO)
                 return events
             else:
-                print(f"Failed to fetch macro calendar: {response.status_code}")
-                
+                logger.warning("Failed to fetch macro calendar: HTTP %s", response.status_code)
+
     except Exception as e:
-        print(f"Error fetching macro calendar: {e}")
-        # Return cached data if available (even if expired) as fallback
-        if _home_cache["macro"]["data"]:
-            return _home_cache["macro"]["data"]
+        logger.error("Error fetching macro calendar: %s", e)
+        # Return stale data if available (even if expired) as fallback
+        stale = home_cache.get_with_fallback("macro")
+        if stale:
+            return stale
             
     return []
 
@@ -106,11 +110,10 @@ async def fetch_funding_rates() -> List[Dict]:
     Fetch real-time funding rates for top coins from Binance Futures.
     Returns: List of {symbol, rate, time_until_funding}
     """
-    global _home_cache
-    
     # Check cache
-    if _is_cache_valid("funding"):
-        return _home_cache["funding"]["data"]
+    cached = home_cache.get("funding")
+    if cached is not None:
+        return cached
 
     try:
         async with httpx.AsyncClient() as client:
@@ -140,11 +143,11 @@ async def fetch_funding_rates() -> List[Dict]:
             # Sort by absolute funding rate (highest intensity first)
             results.sort(key=lambda x: abs(x["rate"]), reverse=True)
             
-            _update_cache("funding", results)
+            home_cache.set("funding", results, TTL_FUNDING)
             return results
             
     except Exception as e:
-        print(f"Error fetching funding rates: {e}")
+        logger.error("Error fetching funding rates: %s", e)
         return []
 
 
@@ -158,12 +161,10 @@ async def fetch_liquidations() -> List[Dict]:
     This provides real-time, 100% accurate data instead of mock or limited REST data.
     Returns: List of {symbol, side, quantity, price, amount_usd, time_ago}
     """
-    global _home_cache
-    
     # We lower the cache TTL for liquidations since it's a fast-moving "feed"
-    # Even 10 seconds is enough to prevent spamming
-    if _is_cache_valid("liquidations", ttl_override=10):
-        return _home_cache["liquidations"]["data"]
+    cached = home_cache.get("liquidations")
+    if cached is not None:
+        return cached
 
     try:
         from services.liquidation_service import liquidation_service
@@ -197,23 +198,21 @@ async def fetch_liquidations() -> List[Dict]:
                 "timestamp": item["timestamp"]
             })
             
-        _update_cache("liquidations", cleaned_data)
+        home_cache.set("liquidations", cleaned_data, TTL_LIQUIDATIONS)
         return cleaned_data
 
     except Exception as e:
-        print(f"Error fetching liquidations from service: {e}")
-        # Fallback to cache if exists
-        if _home_cache["liquidations"]["data"]:
-             return _home_cache["liquidations"]["data"]
+        logger.error("Error fetching liquidations from service: %s", e)
+        # Fallback to stale cache if exists
+        stale = home_cache.get_with_fallback("liquidations")
+        if stale:
+             return stale
         return []
 
 
 # ==========================================
 # ON-CHAIN DATA (REAL APIs)
 # ==========================================
-
-import os
-import asyncio
 
 # Optional Etherscan API key (free tier: 5 req/sec, 100k/day)
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY", "")
@@ -245,7 +244,7 @@ async def _fetch_btc_unique_addresses(client: httpx.AsyncClient) -> Dict[str, An
             elif len(values) == 1:
                 return {"active_addresses": int(values[0]["y"]), "change_24h": 0.0}
     except Exception as e:
-        print(f"[OnChain] Blockchain.com unique addresses error: {e}")
+        logger.warning("[OnChain] Blockchain.com unique addresses error: %s", e)
     return {}
 
 
@@ -267,7 +266,7 @@ async def _fetch_btc_stats(client: httpx.AsyncClient) -> Dict[str, Any]:
             data = response.json()
             result["n_tx"] = data.get("n_tx", 0)
     except Exception as e:
-        print(f"[OnChain] Blockchain.com BTC stats error: {e}")
+        logger.warning("[OnChain] Blockchain.com BTC stats error: %s", e)
     
     # Source 2: Blockchair for addresses and mempool
     try:
@@ -284,7 +283,7 @@ async def _fetch_btc_stats(client: httpx.AsyncClient) -> Dict[str, Any]:
             if not result.get("n_tx"):
                 result["n_tx"] = result["transactions_24h"]
     except Exception as e:
-        print(f"[OnChain] Blockchair BTC stats error: {e}")
+        logger.warning("[OnChain] Blockchair BTC stats error: %s", e)
     
     return result
 
@@ -365,8 +364,6 @@ async def _fetch_eth_stats(client: httpx.AsyncClient) -> Dict[str, Any]:
     return stats
 
 
-import json as _json
-
 def _compute_eth_change(current_addresses: int) -> float:
     """
     Compute ETH active address 24h change using file-persisted history.
@@ -381,10 +378,9 @@ def _compute_eth_change(current_addresses: int) -> float:
     
     # Load existing history
     try:
-        if os.path.exists(_ETH_HISTORY_FILE):
-            with open(_ETH_HISTORY_FILE, 'r') as f:
-                history = _json.load(f)
-    except Exception:
+        with open(_ETH_HISTORY_FILE, 'r') as f:
+            history = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
         history = []
     
     # Add current data point
@@ -397,7 +393,7 @@ def _compute_eth_change(current_addresses: int) -> float:
     # Save updated history
     try:
         with open(_ETH_HISTORY_FILE, 'w') as f:
-            _json.dump(history, f)
+            json.dump(history, f)
     except Exception:
         pass
     
@@ -438,7 +434,7 @@ async def _fetch_eth_gas(client: httpx.AsyncClient) -> float:
                 else:
                     return round(gas_gwei, 2)
     except Exception as e:
-        print(f"[OnChain] ETH RPC gas price error: {e}")
+        logger.warning("[OnChain] ETH RPC gas price error: %s", e)
     
     # Fallback: Etherscan V2 (if key available)
     if ETHERSCAN_API_KEY:
@@ -461,7 +457,7 @@ async def _fetch_eth_gas(client: httpx.AsyncClient) -> float:
                     if gas_val > 0:
                         return gas_val
         except Exception as e:
-            print(f"[OnChain] Etherscan gas oracle error: {e}")
+            logger.warning("[OnChain] Etherscan gas oracle error: %s", e)
     
     return 0.0
 
@@ -517,7 +513,7 @@ async def _fetch_exchange_flows(client: httpx.AsyncClient) -> Dict[str, float]:
                 
                 flows[key] = round(hourly_projection, 2)
         except Exception as e:
-            print(f"[OnChain] Binance {symbol} flow error: {e}")
+            logger.warning("[OnChain] Binance %s flow error: %s", symbol, e)
 
     return flows
 
@@ -532,10 +528,8 @@ async def fetch_onchain_data() -> Dict[str, Any]:
     - Etherscan: ETH gas (if API key set)
     - Binance: Exchange flow estimation from aggregate trades
     """
-    global _prev_onchain
-
-    if _is_cache_valid("onchain"):
-        return _home_cache["onchain"]["data"]
+    if home_cache.is_valid("onchain"):
+        return home_cache.get("onchain")
 
     try:
         async with httpx.AsyncClient() as client:
@@ -553,19 +547,19 @@ async def fetch_onchain_data() -> Dict[str, Any]:
 
             # Handle exceptions from gather
             if isinstance(btc_stats, Exception):
-                print(f"[OnChain] BTC stats exception: {btc_stats}")
+                logger.warning("[OnChain] BTC stats exception: %s", btc_stats)
                 btc_stats = {}
             if isinstance(btc_addr_data, Exception):
-                print(f"[OnChain] BTC addresses exception: {btc_addr_data}")
+                logger.warning("[OnChain] BTC addresses exception: %s", btc_addr_data)
                 btc_addr_data = {}
             if isinstance(eth_stats, Exception):
-                print(f"[OnChain] ETH stats exception: {eth_stats}")
+                logger.warning("[OnChain] ETH stats exception: %s", eth_stats)
                 eth_stats = {}
             if isinstance(etherscan_gas, Exception):
-                print(f"[OnChain] Gas exception: {etherscan_gas}")
+                logger.warning("[OnChain] Gas exception: %s", etherscan_gas)
                 etherscan_gas = 0
             if isinstance(exchange_flows, Exception):
-                print(f"[OnChain] Flow exception: {exchange_flows}")
+                logger.warning("[OnChain] Flow exception: %s", exchange_flows)
                 exchange_flows = {"btc_net_flow_usd": 0.0, "eth_net_flow_usd": 0.0}
 
         # Extract values from API responses
@@ -607,11 +601,11 @@ async def fetch_onchain_data() -> Dict[str, Any]:
             "exchange_flows": exchange_flows,
         }
 
-        _update_cache("onchain", data)
+        home_cache.set("onchain", data, TTL_ONCHAIN)
         return data
 
     except Exception as e:
-        print(f"[OnChain] Fatal error in fetch_onchain_data: {e}")
+        logger.error("[OnChain] Fatal error in fetch_onchain_data: %s", e)
         # Return empty defaults so UI doesn't break
         return {
             "active_addresses": {"btc": 0, "eth": 0, "btc_change_24h": 0, "eth_change_24h": 0},
@@ -621,24 +615,6 @@ async def fetch_onchain_data() -> Dict[str, Any]:
         }
 
 
-# ==========================================
-# HELPERS
-# ==========================================
-
-def _is_cache_valid(key: str, ttl_override: int = None) -> bool:
-    cache = _home_cache[key]
-    if cache["data"] is None or cache["timestamp"] is None:
-        return False
-    
-    elapsed = (datetime.now() - cache["timestamp"]).total_seconds()
-    limit = ttl_override if ttl_override else CACHE_TTL
-    return elapsed < limit
-
-def _update_cache(key: str, data: Any):
-    _home_cache[key] = {
-        "data": data,
-        "timestamp": datetime.now()
-    }
 
 def _get_time_ago(timestamp_ms: int) -> str:
     # Convert binance timestamp (ms) to readable string

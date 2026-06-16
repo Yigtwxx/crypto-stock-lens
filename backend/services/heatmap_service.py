@@ -2,10 +2,13 @@
 Heatmap Data Service - Provides multi-metric data for advanced heatmaps
 Metrics: Price Change, Volume, Social Hype, Developer Activity
 """
+import logging
 import httpx
 from typing import Dict, List, Any
 from datetime import datetime
 import asyncio
+
+logger = logging.getLogger(__name__)
 
 # CoinGecko API (Free tier)
 COINGECKO_API = "https://api.coingecko.com/api/v3"
@@ -156,7 +159,7 @@ async def fetch_heatmap_data() -> Dict[str, Any]:
             return result
             
     except Exception as e:
-        print(f"Error fetching heatmap data: {e}")
+        logger.error(f"Error fetching heatmap data: {e}")
         return _get_fallback_heatmap_data()
 
 
@@ -222,7 +225,7 @@ async def _fetch_detailed_metrics(client: httpx.AsyncClient, coin_ids: List[str]
             await asyncio.sleep(0.1)
             
         except Exception as e:
-            print(f"Error fetching details for {coin_id}: {e}")
+            logger.error(f"Error fetching details for {coin_id}: {e}")
             detailed[coin_id] = {"social_score": 50, "developer_score": 50}
     
     return detailed

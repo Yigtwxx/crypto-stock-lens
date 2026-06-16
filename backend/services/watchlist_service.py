@@ -3,6 +3,7 @@ Watchlist Service
 Handles CRUD operations for user watchlists and fetches real-time prices 
 for both Crypto (CoinGecko) and Stocks (Yahoo Finance).
 """
+import logging
 import json
 import os
 import httpx
@@ -10,6 +11,8 @@ import asyncio
 from typing import List, Dict, Any, Optional
 from services.stock_market_service import fetch_single_stock
 from services.market_overview_service import _fetch_coin_metadata
+
+logger = logging.getLogger(__name__)
 
 DATA_FILE = "data/watchlist.json"
 
@@ -171,7 +174,7 @@ class CryptoSymbolResolver:
             
         # 3. Fetch from API (Search)
         try:
-            # print(f"Resolving symbol from API: {symbol}")
+            # logger.info(f"Resolving symbol from API: {symbol}")
             response = await client.get(
                 "https://api.coingecko.com/api/v3/search",
                 params={"query": symbol},
@@ -207,7 +210,7 @@ class CryptoSymbolResolver:
                         return coin_id
                         
         except Exception as e:
-            print(f"Error resolving symbol {symbol}: {e}")
+            logger.error(f"Error resolving symbol {symbol}: {e}")
             
         return None
 
@@ -322,15 +325,15 @@ async def _hydrate_prices(watchlists):
                             _crypto_price_cache["timestamp"] = current_time
                             crypto_data = new_crypto_data
                         elif response.status_code == 429:
-                            print(f"Watchlist crypto fetch rate limited (429). Using cache/fallback.")
+                            logger.warning(f"Watchlist crypto fetch rate limited (429). Using cache/fallback.")
                             # Use old cache if exists
                             crypto_data = _crypto_price_cache["data"]
                         else:
-                            print(f"Watchlist crypto fetch failed with status: {response.status_code}")
+                            logger.error(f"Watchlist crypto fetch failed with status: {response.status_code}")
                             crypto_data = _crypto_price_cache["data"]
                             
                 except Exception as e:
-                    print(f"Watchlist crypto fetch error: {e}")
+                    logger.error(f"Watchlist crypto fetch error: {e}")
                     # Fallback to cache on error
                     crypto_data = _crypto_price_cache["data"]
 

@@ -1,20 +1,13 @@
 """Stock Market Overview service using httpx for NASDAQ stocks."""
+import logging
 import httpx
 from datetime import datetime
 from typing import Dict, List, Optional
 import asyncio
 
-# Cache for stock data (2 minutes)
-_stock_cache: dict = {
-    "data": None,
-    "timestamp": None
-}
+from services.cache import market_cache
 
-# Cache for CNN Fear & Greed (10 minutes for stocks)
-_fear_greed_stock_cache: dict = {
-    "data": None,
-    "timestamp": None
-}
+logger = logging.getLogger(__name__)
 
 CACHE_DURATION_SECONDS = 120  # 2 minutes
 FEAR_GREED_CACHE_DURATION = 600  # 10 minutes
@@ -102,38 +95,7 @@ def get_stock_logo(symbol: str) -> str:
     # Generate fallback with ui-avatars
     return f"https://ui-avatars.com/api/?name={symbol}&background=4f46e5&color=fff&size=64&bold=true"
 
-STOCK_LOGOS = {
-    "AAPL": get_stock_logo("AAPL"),
-    "MSFT": get_stock_logo("MSFT"),
-    "GOOGL": get_stock_logo("GOOGL"),
-    "AMZN": get_stock_logo("AMZN"),
-    "NVDA": get_stock_logo("NVDA"),
-    "META": get_stock_logo("META"),
-    "TSLA": get_stock_logo("TSLA"),
-    "AVGO": get_stock_logo("AVGO"),
-    "COST": get_stock_logo("COST"),
-    "NFLX": get_stock_logo("NFLX"),
-    "AMD": get_stock_logo("AMD"),
-    "ADBE": get_stock_logo("ADBE"),
-    "PEP": get_stock_logo("PEP"),
-    "CSCO": get_stock_logo("CSCO"),
-    "INTC": get_stock_logo("INTC"),
-    "CMCSA": get_stock_logo("CMCSA"),
-    "TMUS": get_stock_logo("TMUS"),
-    "TXN": get_stock_logo("TXN"),
-    "QCOM": get_stock_logo("QCOM"),
-    "INTU": get_stock_logo("INTU"),
-    "AMGN": get_stock_logo("AMGN"),
-    "ISRG": get_stock_logo("ISRG"),
-    "HON": get_stock_logo("HON"),
-    "AMAT": get_stock_logo("AMAT"),
-    "BKNG": get_stock_logo("BKNG"),
-    "SBUX": get_stock_logo("SBUX"),
-    "GILD": get_stock_logo("GILD"),
-    "ADP": get_stock_logo("ADP"),
-    "VRTX": get_stock_logo("VRTX"),
-    "PYPL": get_stock_logo("PYPL"),
-}
+STOCK_LOGOS = {symbol: get_stock_logo(symbol) for symbol in NASDAQ_STOCKS}
 
 # Cache for real market cap data (refreshed every 30 min)
 _market_cap_cache: dict = {
@@ -177,24 +139,23 @@ def _parse_market_cap_string(value_str: str) -> float:
 
 async def _fetch_batch_market_caps(client: httpx.AsyncClient, symbols: list) -> dict:
     """
-    Fetch market caps for all symbols from stockanalysis.com free API.
+    Fetch market caps for all symbols from stockanalysis.com free API in parallel.
     Returns dict of {symbol: market_cap_usd}.
     """
     global _market_cap_cache
-    
+
     # Check if cache is still fresh
-    if (_market_cap_cache["timestamp"] and 
+    if (_market_cap_cache["timestamp"] and
             (datetime.now() - _market_cap_cache["timestamp"]).total_seconds() < MARKET_CAP_CACHE_DURATION and
             len(_market_cap_cache["data"]) >= len(symbols) * 0.5):
         return _market_cap_cache["data"]
-    
-    result = {}
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         "Accept": "application/json"
     }
-    
-    for symbol in symbols:
+
+    async def _fetch_one(symbol: str) -> tuple[str, float]:
         try:
             resp = await client.get(
                 f"https://api.stockanalysis.com/api/symbol/s/{symbol}/overview",
@@ -206,15 +167,19 @@ async def _fetch_batch_market_caps(client: httpx.AsyncClient, symbols: list) -> 
                 if mcap_str:
                     mcap = _parse_market_cap_string(str(mcap_str))
                     if mcap > 0:
-                        result[symbol] = mcap
+                        return symbol, mcap
         except Exception:
-            continue
-    
+            pass
+        return symbol, 0.0
+
+    responses = await asyncio.gather(*[_fetch_one(s) for s in symbols])
+    result = {sym: cap for sym, cap in responses if cap > 0}
+
     if result:
         _market_cap_cache["data"].update(result)
         _market_cap_cache["timestamp"] = datetime.now()
-        print(f"✓ Fetched {len(result)} market caps from stockanalysis.com")
-    
+        logger.info("Fetched %d market caps from stockanalysis.com", len(result))
+
     return _market_cap_cache["data"]
 
 
@@ -285,29 +250,16 @@ async def fetch_single_stock(client: httpx.AsyncClient, symbol: str) -> Optional
                     "fifty_two_week_low": float(fifty_two_week_low)
                 }
     except Exception as e:
-        print(f"Error fetching {symbol}: {e}")
-    
+        logger.warning("Error fetching %s: %s", symbol, e)
+
     return None
 
-
-# Global Indices Configuration
-GLOBAL_INDICES = {
-    "^GSPC": {"name": "S&P 500", "region": "US"},
-    "^IXIC": {"name": "NASDAQ", "region": "US"},
-    "^DJI": {"name": "Dow Jones", "region": "US"},
-    "^FTSE": {"name": "FTSE 100", "region": "UK"},
-    "^GDAXI": {"name": "DAX", "region": "DE"},
-    "^N225": {"name": "Nikkei 225", "region": "JP"},
-    "^HSI": {"name": "Hang Seng", "region": "HK"},
-    "^FCHI": {"name": "CAC 40", "region": "FR"},
-}
 
 def get_market_status() -> dict:
     """
     Get current NASDAQ market status (US Eastern Time).
     """
-    from datetime import datetime
-    import pytz # type: ignore
+    import pytz  # type: ignore
 
     try:
         # Define timezones
@@ -379,7 +331,7 @@ def get_market_status() -> dict:
             }
             
     except Exception as e:
-        print(f"Error determining market status: {e}")
+        logger.error("Error determining market status: %s", e)
         return {
             "status": "Unknown",
             "message": "--",
@@ -392,17 +344,12 @@ async def fetch_nasdaq_overview() -> dict:
     Fetch NASDAQ stock overview data.
     Uses yfinance first, falls back to Yahoo Finance v8 chart API.
     """
-    global _stock_cache
-    
-    # Check cache first
-    if _stock_cache["data"] and _stock_cache["timestamp"]:
-        elapsed = (datetime.now() - _stock_cache["timestamp"]).total_seconds()
-        if elapsed < CACHE_DURATION_SECONDS:
-            # Ensure we update the status even if cached, as time flows
-            # But deep copy to not mutate cache in place improperly if threading issues (simple dict ok)
-            cached_data = _stock_cache["data"].copy()
-            cached_data["market_status"] = get_market_status()
-            return cached_data
+    # Check cache first — always refresh market_status since it's time-dependent
+    cached = market_cache.get("stock_overview")
+    if cached is not None:
+        cached_data = cached.copy()
+        cached_data["market_status"] = get_market_status()
+        return cached_data
     
     stocks_data = []
     total_volume = 0
@@ -455,7 +402,7 @@ async def fetch_nasdaq_overview() -> dict:
                         low = info.get('dayLow', price)
                         year_high = info.get('fiftyTwoWeekHigh', price)
                         year_low = info.get('fiftyTwoWeekLow', price)
-                    except:
+                    except Exception:
                         # minimal fallback if full info fetch fails
                         volume = 0
                         high = price
@@ -482,7 +429,7 @@ async def fetch_nasdaq_overview() -> dict:
                 # If individual ticker fails, skip
                 continue
     except Exception as e:
-        print(f"yfinance failed: {e}")
+        logger.warning("yfinance failed: %s", e)
     
     # If yfinance failed or returned too few, try Yahoo Finance v8 chart API directly
     if len(stocks_data) < 5:
@@ -499,7 +446,7 @@ async def fetch_nasdaq_overview() -> dict:
                     if isinstance(result, dict) and result.get("price", 0) > 0:
                         stocks_data.append(result)
         except Exception as e:
-            print(f"Yahoo Finance v8 fallback also failed: {e}")
+            logger.error("Yahoo Finance v8 fallback also failed: %s", e)
     
     # Sort and rank all data regardless of source
     if stocks_data:
@@ -516,7 +463,8 @@ async def fetch_nasdaq_overview() -> dict:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             fear_greed = await fetch_stock_fear_greed(client)
-    except:
+    except Exception as e:
+        logger.warning("Error fetching stock fear/greed: %s", e)
         fear_greed = None
     
     result = {
@@ -530,34 +478,27 @@ async def fetch_nasdaq_overview() -> dict:
         "market_status": get_market_status()
     }
     
-    # Update cache
-    _stock_cache["data"] = result
-    _stock_cache["timestamp"] = datetime.now()
-    
+    market_cache.set("stock_overview", result, CACHE_DURATION_SECONDS)
     return result
 
 
 
 
 
-async def fetch_stock_fear_greed(client: Optional[httpx.AsyncClient] = None) -> dict:
+async def fetch_stock_fear_greed(client: Optional[httpx.AsyncClient] = None) -> Optional[dict]:
     """
     Fetch CNN Fear & Greed Index for stock market.
     """
-    global _fear_greed_stock_cache
-    
-    # Check cache
-    if _fear_greed_stock_cache["data"] and _fear_greed_stock_cache["timestamp"]:
-        elapsed = (datetime.now() - _fear_greed_stock_cache["timestamp"]).total_seconds()
-        if elapsed < FEAR_GREED_CACHE_DURATION:
-            return _fear_greed_stock_cache["data"]
-    
+    cached = market_cache.get("fear_greed_stock")
+    if cached is not None:
+        return cached
+
     try:
         should_close = False
         if client is None:
             client = httpx.AsyncClient(timeout=10.0)
             should_close = True
-        
+
         # CNN Fear & Greed API
         response = await client.get(
             "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
@@ -565,38 +506,30 @@ async def fetch_stock_fear_greed(client: Optional[httpx.AsyncClient] = None) -> 
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             }
         )
-        
+
         if should_close:
             await client.aclose()
-        
+
         if response.status_code == 200:
             data = response.json()
-            
-            # Get current score
+
             fear_greed_data = data.get("fear_and_greed", {})
             score = fear_greed_data.get("score", 50)
             rating = fear_greed_data.get("rating", "Neutral")
-            
+
             result = {
                 "value": int(score),
                 "classification": rating,
                 "timestamp": datetime.now().isoformat()
             }
-            
-            # Update cache
-            _fear_greed_stock_cache["data"] = result
-            _fear_greed_stock_cache["timestamp"] = datetime.now()
-            
+
+            market_cache.set("fear_greed_stock", result, FEAR_GREED_CACHE_DURATION)
             return result
-            
+
     except Exception as e:
-        print(f"Error fetching CNN Fear & Greed: {e}")
-    
-    # Return cached data if available, otherwise None
-    if _fear_greed_stock_cache["data"]:
-        return _fear_greed_stock_cache["data"]
-    
-    return None
+        logger.error("Error fetching CNN Fear & Greed: %s", e)
+
+    return market_cache.get_with_fallback("fear_greed_stock")
 
 
 # Global Indices Configuration
@@ -631,7 +564,7 @@ async def fetch_global_indices() -> list:
                     indices_data.append(result)
                     
     except Exception as e:
-        print(f"Error fetching global indices: {e}")
+        logger.error("Error fetching global indices: %s", e)
         
     # Sort by region/importance (custom order based on dict keys)
     ordered_data = []
@@ -660,5 +593,5 @@ async def get_stock_context_data(symbol: str) -> Optional[Dict]:
                 data["fear_greed"] = fg
                 return data
     except Exception as e:
-        print(f"Error fetching stock context for {symbol}: {e}")
+        logger.error("Error fetching stock context for %s: %s", symbol, e)
     return None

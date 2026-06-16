@@ -2,11 +2,14 @@
 Oracle Chat Service v2 - Enhanced AI Financial Assistant
 Uses Ollama (llama3.1:8b) with web search and multi-source data analysis.
 """
+import logging
 import httpx
 import re
 from typing import List, Dict, Optional
 from datetime import datetime
 
+
+logger = logging.getLogger(__name__)
 
 # Ollama API endpoint
 OLLAMA_BASE_URL = "http://localhost:11434"
@@ -124,7 +127,7 @@ async def fetch_all_market_data(detected_symbols: List[str], context_type: str =
                 data["fear_greed"] = data["overview"].get("fear_greed")
 
         except Exception as e:
-            print(f"Stock data fetch error: {e}")
+            logger.error(f"Stock data fetch error: {e}")
 
     # --- PROCESS CRYPTO CONTEXT ---
     else:
@@ -132,12 +135,12 @@ async def fetch_all_market_data(detected_symbols: List[str], context_type: str =
             # 1. Get Crypto Overview
             data["overview"] = await fetch_market_overview()
         except Exception as e:
-            print(f"Market overview fetch error: {e}")
+            logger.error(f"Market overview fetch error: {e}")
         
         try:
             data["fear_greed"] = await fetch_fear_greed_index()
         except Exception as e:
-            print(f"Fear/Greed fetch error: {e}")
+            logger.error(f"Fear/Greed fetch error: {e}")
         
         # Ensure BTC is always analyzed for context in Crypto mode
         if "BTC" not in detected_symbols:
@@ -150,7 +153,7 @@ async def fetch_all_market_data(detected_symbols: List[str], context_type: str =
                 if tech and tech.get("current_price", 0) > 0:
                     data["technicals"][symbol] = tech
             except Exception as e:
-                print(f"Technical analysis error for {symbol}: {e}")
+                logger.error(f"Technical analysis error for {symbol}: {e}")
 
     # --- COMMON DATA (NEWS) ---
     try:
@@ -159,7 +162,7 @@ async def fetch_all_market_data(detected_symbols: List[str], context_type: str =
         news = await fetch_all_news()
         data["news"] = news[:5] if news else []
     except Exception as e:
-        print(f"News fetch error: {e}")
+        logger.error(f"News fetch error: {e}")
     
     return data
 
@@ -296,7 +299,7 @@ async def chat_with_oracle(
                 if cmp_result.get("summary"):
                     advanced_context.append(f"KARŞILAŞTIRMA AJANI (v4):\n{cmp_result['summary']}")
             except Exception as e:
-                print(f"RAG v4 Compare error: {e}")
+                logger.error(f"RAG v4 Compare error: {e}")
                 
     # 2.5b: Scenario Simulation (v4) - e.g. "Eğer faiz düşerse BTC ne olur?"
     scenario_kws = ["eğer", "olursa", "senaryo", "düşerse", "çıkarsa", "neler olur", "farz edelim"]
@@ -307,7 +310,7 @@ async def chat_with_oracle(
             if sim_result.get("simulation_summary"):
                 advanced_context.append(f"SİMÜLASYON AJANI (v4):\n{sim_result['simulation_summary']}")
         except Exception as e:
-            print(f"RAG v4 Simulate error: {e}")
+            logger.error(f"RAG v4 Simulate error: {e}")
             
     # 2.5c: Price Movement Insights (v3) - If primary symbol exists and no other agent fired
     if primary_symbol and not advanced_context:
@@ -317,7 +320,7 @@ async def chat_with_oracle(
             if reason_result.get("summary"):
                 advanced_context.append(f"İÇGÖRÜ AJANI (v3):\n{reason_result['summary']}")
         except Exception as e:
-            print(f"RAG v3 Insight error: {e}")
+            logger.error(f"RAG v3 Insight error: {e}")
             
     if advanced_context:
         market_data["advanced_rag"] = "\n\n".join(advanced_context)
@@ -327,7 +330,7 @@ async def chat_with_oracle(
     try:
         web_context = await get_enhanced_context(message, primary_symbol)
     except Exception as e:
-        print(f"Web search error: {e}")
+        logger.error(f"Web search error: {e}")
     
     # Step 4: Get RAG 2.0 historical context (always active for richer responses)
     rag_context = ""
@@ -339,7 +342,7 @@ async def chat_with_oracle(
             context_type="all"
         )
     except Exception as e:
-        print(f"RAG 2.0 context error: {e}")
+        logger.error(f"RAG 2.0 context error: {e}")
     
     # Step 5: Build comprehensive context
     full_context = await build_context_string(market_data, web_context, message, rag_context)

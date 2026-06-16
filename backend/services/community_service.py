@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from services.supabase_service import get_supabase
+
+logger = logging.getLogger(__name__)
 
 async def get_all_posts(
     limit: int = 20, 
@@ -24,7 +27,7 @@ async def get_all_posts(
         response = query.execute()
         return response.data or []
     except Exception as e:
-        print(f"Error fetching posts: {e}")
+        logger.error(f"Error fetching posts: {e}")
         return []
 
 async def create_post(
@@ -53,7 +56,7 @@ async def create_post(
         response = supabase.table("community_posts").insert(data).execute()
         return response.data[0] if response.data else None
     except Exception as e:
-        print(f"Error creating post: {e}")
+        logger.error(f"Error creating post: {e}")
         return None
 
 async def get_post_comments(post_id: str) -> List[Dict[str, Any]]:
@@ -71,7 +74,7 @@ async def get_post_comments(post_id: str) -> List[Dict[str, Any]]:
             
         return response.data or []
     except Exception as e:
-        print(f"Error fetching comments: {e}")
+        logger.error(f"Error fetching comments: {e}")
         return []
 
 async def create_comment(user_id: str, post_id: str, content: str) -> Optional[Dict[str, Any]]:
@@ -103,7 +106,7 @@ async def create_comment(user_id: str, post_id: str, content: str) -> Optional[D
             
         return None
     except Exception as e:
-        print(f"Error creating comment: {e}")
+        logger.error(f"Error creating comment: {e}")
         return None
 
 async def toggle_like(user_id: str, post_id: str) -> Dict[str, Any]:
@@ -143,7 +146,7 @@ async def toggle_like(user_id: str, post_id: str) -> Dict[str, Any]:
         return {"liked": is_liked, "likes_count": new_count}
         
     except Exception as e:
-        print(f"Error toggling like: {e}")
+        logger.error(f"Error toggling like: {e}")
         return {"error": str(e)}
 
 async def get_user_posts(user_id: str) -> List[Dict[str, Any]]:
@@ -159,5 +162,5 @@ async def get_user_posts(user_id: str) -> List[Dict[str, Any]]:
             .execute()
         return response.data or []
     except Exception as e:
-        print(f"Error fetching user posts: {e}")
+        logger.error(f"Error fetching user posts: {e}")
         return []

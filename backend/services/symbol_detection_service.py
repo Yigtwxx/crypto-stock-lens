@@ -2,12 +2,15 @@
 Symbol Detection Service - Smart detection of trading symbols from text
 Uses CoinGecko API for dynamic coin list and intelligent pattern matching
 """
+import logging
 import httpx
 import asyncio
 import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 # Cache for coin data
 _coin_cache: Dict[str, dict] = {}
@@ -319,7 +322,7 @@ async def fetch_coingecko_coins() -> List[dict]:
                 _coin_cache_time = datetime.now()
                 return list(_coin_cache.values())
     except Exception as e:
-        print(f"CoinGecko fetch error: {e}")
+        logger.error(f"CoinGecko fetch error: {e}")
     
     # Return cached data if fetch fails
     return list(_coin_cache.values()) if _coin_cache else []
@@ -475,13 +478,13 @@ async def detect_symbol_smart(
                     is_valid = False
                     
             if is_valid:
-                print(f"[SymbolDetection] LLM found: {llm_symbol}")
+                logger.info(f"[SymbolDetection] LLM found: {llm_symbol}")
                 return llm_symbol
             else:
-                print(f"[SymbolDetection] LLM output rejected (invalid for {asset_type}): {llm_symbol}")
+                logger.info(f"[SymbolDetection] LLM output rejected (invalid for {asset_type}): {llm_symbol}")
 
     except Exception as e:
-        print(f"[SymbolDetection] LLM failed: {e}")
+        logger.error(f"[SymbolDetection] LLM failed: {e}")
 
     # Strategy 3: Legacy List Matching (Fallback)
     matches: List[SymbolMatch] = []

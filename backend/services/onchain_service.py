@@ -1,14 +1,15 @@
 
+import logging
 import httpx
 import asyncio
 from datetime import datetime
 from typing import List, Dict
 
+from services.cache import home_cache
+
+logger = logging.getLogger(__name__)
+
 # Cache configuration
-_whale_cache = {
-    "data": [],
-    "timestamp": None
-}
 CACHE_DURATION = 10  # 10 seconds (near real-time)
 
 # Tracked Pairs for Whale Activity
@@ -19,13 +20,10 @@ async def fetch_whale_trades() -> Dict:
     """
     Fetch recent large trades from Binance AggTrades.
     """
-    global _whale_cache
-    
     # Check cache
-    if _whale_cache["timestamp"]:
-        elapsed = (datetime.now() - _whale_cache["timestamp"]).total_seconds()
-        if elapsed < CACHE_DURATION and _whale_cache["data"]:
-            return _whale_cache["data"]
+    cached = home_cache.get("whale_trades")
+    if cached is not None:
+        return cached
 
     whale_trades = []
     
@@ -56,13 +54,14 @@ async def fetch_whale_trades() -> Dict:
                 }
             }
             
-            _whale_cache["data"] = result
-            _whale_cache["timestamp"] = datetime.now()
-            
+            home_cache.set("whale_trades", result, CACHE_DURATION)
             return result
             
     except Exception as e:
-        print(f"Error fetching whale trades: {e}")
+        logger.error("Error fetching whale trades: %s", e)
+        stale = home_cache.get_with_fallback("whale_trades")
+        if stale:
+            return stale
         return {"trades": [], "stats": {}}
 
 async def _fetch_pair_trades(client: httpx.AsyncClient, symbol: str) -> List[Dict]:
@@ -97,5 +96,5 @@ async def _fetch_pair_trades(client: httpx.AsyncClient, symbol: str) -> List[Dic
                     })
             return whales
     except Exception as e:
-        print(f"Error fetching trades for {symbol}: {e}")
+        logger.warning("Error fetching trades for %s: %s", symbol, e)
     return []

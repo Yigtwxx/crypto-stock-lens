@@ -9,10 +9,13 @@ IMPROVED VERSION:
 - More robust error handling
 - Works for all crypto pairs
 """
+import logging
 import httpx
 from typing import Optional, List, Dict, Tuple
 from dataclasses import dataclass
 
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class TechnicalLevels:
@@ -46,10 +49,10 @@ async def fetch_klines(symbol: str, interval: str = "1h", limit: int = 100) -> L
             )
             if response.status_code == 200:
                 return response.json()
-            print(f"Binance API returned {response.status_code} for {symbol}")
+            logger.warning(f"Binance API returned {response.status_code} for {symbol}")
             return []
     except Exception as e:
-        print(f"Error fetching klines for {symbol}: {e}")
+        logger.error(f"Error fetching klines for {symbol}: {e}")
         return []
 
 
@@ -66,7 +69,7 @@ async def fetch_current_price(symbol: str) -> Optional[float]:
                 return float(data["price"])
             return None
     except Exception as e:
-        print(f"Error fetching price: {e}")
+        logger.error(f"Error fetching price: {e}")
         return None
 
 
@@ -373,7 +376,7 @@ async def get_crypto_analysis(symbol: str) -> Optional[Dict]:
         klines = klines_4h if len(klines_4h) >= 50 else klines_1h
         
         if not klines or len(klines) < 20:
-            print(f"Not enough data for {symbol}")
+            logger.info(f"Not enough data for {symbol}")
             return get_fallback_analysis_for_symbol(symbol)
         
         # Get current price
@@ -439,7 +442,7 @@ async def get_crypto_analysis(symbol: str) -> Optional[Dict]:
         }
         
     except Exception as e:
-        print(f"Crypto analysis error for {symbol}: {e}")
+        logger.error(f"Crypto analysis error for {symbol}: {e}")
         return get_fallback_analysis_for_symbol(symbol)
 
 

@@ -1,8 +1,11 @@
 """Profile service for user management, subscriptions, and connected accounts."""
+import logging
 from datetime import datetime, date
 from typing import Dict, List, Optional, Any
 from services.supabase_service import get_supabase
 
+
+logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PROFILE FUNCTIONS
@@ -44,7 +47,7 @@ async def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
             return profile
         
         # Profile doesn't exist - create a default one
-        print(f"Creating default profile for user: {user_id}")
+        logger.info(f"Creating default profile for user: {user_id}")
         default_profile = {
             "id": user_id,
             "subscription_plan": "free",
@@ -59,7 +62,7 @@ async def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
             supabase.table("profiles").upsert(default_profile).execute()
         except Exception as insert_error:
             # Even with upsert, we might hit some issues, but this is safer
-            print(f"Could not create profile (may already exist or RLS): {insert_error}")
+            logger.error(f"Could not create profile (may already exist or RLS): {insert_error}")
         
         # Return default profile with computed fields
         default_profile["ai_query_limit"] = 5
@@ -67,7 +70,7 @@ async def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
         return default_profile
         
     except Exception as e:
-        print(f"Error getting profile: {e}")
+        logger.error(f"Error getting profile: {e}")
     
     # Return a minimal default profile even on error
     return {
@@ -97,7 +100,7 @@ async def update_user_profile(user_id: str, data: Dict[str, Any]) -> bool:
         
         return response.data is not None
     except Exception as e:
-        print(f"Error updating profile: {e}")
+        logger.error(f"Error updating profile: {e}")
     
     return False
 
@@ -152,7 +155,7 @@ async def get_connected_accounts(user_id: str) -> List[Dict[str, Any]]:
         
         return response.data or []
     except Exception as e:
-        print(f"Error getting connected accounts: {e}")
+        logger.error(f"Error getting connected accounts: {e}")
     
     return []
 
@@ -187,7 +190,7 @@ async def connect_account(
         
         return response.data is not None
     except Exception as e:
-        print(f"Error connecting account: {e}")
+        logger.error(f"Error connecting account: {e}")
     
     return False
 
@@ -205,7 +208,7 @@ async def disconnect_account(user_id: str, provider: str) -> bool:
         
         return True
     except Exception as e:
-        print(f"Error disconnecting account: {e}")
+        logger.error(f"Error disconnecting account: {e}")
     
     return False
 
@@ -336,7 +339,7 @@ async def get_user_settings(user_id: str) -> Dict[str, Any]:
         return default_settings
         
     except Exception as e:
-        print(f"Error getting settings: {e}")
+        logger.error(f"Error getting settings: {e}")
     
     return {
         "theme": "dark",
@@ -371,6 +374,6 @@ async def update_user_settings(user_id: str, settings: Dict[str, Any]) -> bool:
         
         return True
     except Exception as e:
-        print(f"Error updating settings: {e}")
+        logger.error(f"Error updating settings: {e}")
     
     return False

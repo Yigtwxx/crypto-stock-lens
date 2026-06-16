@@ -2,6 +2,7 @@
 News Service - Fetches news from multiple sources
 Supports: CryptoCompare, NewsAPI, RSS feeds
 """
+import logging
 import httpx
 import asyncio
 import re
@@ -10,6 +11,8 @@ from typing import List, Optional
 import hashlib
 import feedparser
 from email.utils import parsedate_to_datetime
+
+logger = logging.getLogger(__name__)
 
 from models.schemas import NewsItem
 from services.symbol_detection_service import detect_symbol_smart
@@ -426,8 +429,8 @@ async def fetch_cryptocompare_news() -> List[NewsItem]:
                         url=news.get("url", "")
                     ))
     except Exception as e:
-        print(f"CryptoCompare fetch error: {e}")
-    
+        logger.error("CryptoCompare fetch error: %s", e)
+
     return items
 
 
@@ -461,8 +464,8 @@ async def fetch_coindesk_rss() -> List[NewsItem]:
                 url=entry.get("link", "")
             ))
     except Exception as e:
-        print(f"CoinDesk RSS fetch error: {e}")
-    
+        logger.error("CoinDesk RSS fetch error: %s", e)
+
     return items
 
 
@@ -496,8 +499,8 @@ async def fetch_cointelegraph_rss() -> List[NewsItem]:
                 url=entry.get("link", "")
             ))
     except Exception as e:
-        print(f"CoinTelegraph RSS fetch error: {e}")
-    
+        logger.error("CoinTelegraph RSS fetch error: %s", e)
+
     return items
 
 
@@ -531,8 +534,8 @@ async def fetch_marketwatch_rss() -> List[NewsItem]:
                 url=entry.get("link", "")
             ))
     except Exception as e:
-        print(f"MarketWatch RSS fetch error: {e}")
-    
+        logger.error("MarketWatch RSS fetch error: %s", e)
+
     return items
 
 
@@ -565,8 +568,8 @@ async def fetch_investing_rss() -> List[NewsItem]:
                 url=entry.get("link", "")
             ))
     except Exception as e:
-        print(f"Investing.com RSS fetch error: {e}")
-    
+        logger.error("Investing.com RSS fetch error: %s", e)
+
     return items
 
 
@@ -599,8 +602,8 @@ async def fetch_seeking_alpha_rss() -> List[NewsItem]:
                 url=entry.get("link", "")
             ))
     except Exception as e:
-        print(f"Seeking Alpha RSS fetch error: {e}")
-    
+        logger.error("Seeking Alpha RSS fetch error: %s", e)
+
     return items
 
 
@@ -634,8 +637,8 @@ async def fetch_koinbulteni_rss() -> List[NewsItem]:
                 url=entry.get("link", "")
             ))
     except Exception as e:
-        print(f"Koin Bülteni RSS fetch error: {e}")
-    
+        logger.error("Koin Bülteni RSS fetch error: %s", e)
+
     return items
 
 async def fetch_all_news() -> List[NewsItem]:
@@ -662,7 +665,7 @@ async def fetch_all_news() -> List[NewsItem]:
         if isinstance(result, list):
             all_items.extend(result)
         else:
-            print(f"News fetch error: {result}")
+            logger.error("News source fetch error: %s", result)
     
     # Remove duplicates by title similarity
     seen_titles = set()

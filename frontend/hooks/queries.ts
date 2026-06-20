@@ -13,6 +13,13 @@ import {
     fetchWatchlists,
     createWatchlist,
     deleteWatchlist,
+    fetchAnalysisReport,
+    generateAnalysisReport,
+    fetchNotes,
+    createNote,
+    deleteNote,
+    type TimeFrame,
+    type Note,
 } from '@/lib/api';
 
 // ==========================================
@@ -28,6 +35,8 @@ export const queryKeys = {
     nasdaqOverview: ['nasdaqOverview'] as const,
     news: (assetType?: string) => ['news', assetType] as const,
     watchlists: ['watchlists'] as const,
+    analysisReport: (timeframe: TimeFrame) => ['analysisReport', timeframe] as const,
+    notes: ['notes'] as const,
 };
 
 // ==========================================
@@ -162,6 +171,57 @@ export function useDeleteWatchlist() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.watchlists });
+        },
+    });
+}
+
+// ==========================================
+// ANALYSIS PAGE HOOKS
+// ==========================================
+
+export function useAnalysisReport(timeframe: TimeFrame) {
+    return useQuery({
+        queryKey: queryKeys.analysisReport(timeframe),
+        queryFn: () => fetchAnalysisReport(timeframe),
+        staleTime: 5 * 60 * 1000, // 5 min — reports are generated periodically
+    });
+}
+
+export function useRegenerateReport() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (timeframe: TimeFrame) => generateAnalysisReport(timeframe),
+        onSuccess: (data, timeframe) => {
+            queryClient.setQueryData(queryKeys.analysisReport(timeframe), data);
+        },
+    });
+}
+
+export function useNotes() {
+    return useQuery({
+        queryKey: queryKeys.notes,
+        queryFn: fetchNotes,
+        staleTime: 60 * 1000,
+    });
+}
+
+export function useCreateNote() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ title, content }: { title: string; content: string }) =>
+            createNote(title, content),
+        onSuccess: (notes: Note[]) => {
+            queryClient.setQueryData(queryKeys.notes, notes);
+        },
+    });
+}
+
+export function useDeleteNote() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => deleteNote(id),
+        onSuccess: (notes: Note[]) => {
+            queryClient.setQueryData(queryKeys.notes, notes);
         },
     });
 }

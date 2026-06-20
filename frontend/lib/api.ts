@@ -3,16 +3,63 @@ import { NewsItem, SentimentAnalysis } from '@/store/useStore';
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_BASE = API_BASE_URL;
 
-export async function fetchNews(assetType?: string): Promise<NewsItem[]> {
-    const params = new URLSearchParams();
-    if (assetType) params.append('asset_type', assetType);
+/** Error thrown by {@link apiFetch} for non-2xx responses, carrying the status. */
+export class ApiError extends Error {
+    constructor(
+        public status: number,
+        message: string
+    ) {
+        super(message);
+        this.name = 'ApiError';
+    }
+}
 
-    const response = await fetch(`${API_BASE}/api/news?${params}`);
-    if (!response.ok) {
-        throw new Error('Failed to fetch news');
+type ApiFetchOptions = RequestInit & {
+    params?: Record<string, string | number | boolean | undefined | null>;
+};
+
+/**
+ * Thin wrapper around fetch for the Oracle-X backend.
+ * - Prepends the API base URL (unless an absolute URL is passed)
+ * - Serialises `params` into the query string (skipping nullish values)
+ * - Sets a JSON Content-Type only when a body is present
+ * - Throws {@link ApiError} on non-2xx responses
+ * - Returns parsed JSON (or `undefined` for empty 204 responses)
+ */
+export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+    const { params, headers, ...init } = options;
+
+    let url = path.startsWith('http') ? path : `${API_BASE}${path}`;
+    if (params) {
+        const search = new URLSearchParams();
+        for (const [key, value] of Object.entries(params)) {
+            if (value !== undefined && value !== null && value !== '') {
+                search.append(key, String(value));
+            }
+        }
+        const qs = search.toString();
+        if (qs) url += `?${qs}`;
     }
 
-    const data = await response.json();
+    const finalHeaders: Record<string, string> = { ...(headers as Record<string, string>) };
+    if (init.body && !finalHeaders['Content-Type']) {
+        finalHeaders['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(url, { ...init, headers: finalHeaders });
+    if (!response.ok) {
+        throw new ApiError(response.status, `Request to ${path} failed: ${response.status}`);
+    }
+    if (response.status === 204) {
+        return undefined as T;
+    }
+    return response.json() as Promise<T>;
+}
+
+export async function fetchNews(assetType?: string): Promise<NewsItem[]> {
+    const data = await apiFetch<{ items: NewsItem[] }>('/api/news', {
+        params: { asset_type: assetType },
+    });
     return data.items;
 }
 
@@ -22,19 +69,10 @@ export async function analyzeNews(newsId: string, currentPrice?: number): Promis
         body.current_price = currentPrice;
     }
 
-    const response = await fetch(`${API_BASE}/api/analyze`, {
+    return apiFetch<SentimentAnalysis>('/api/analyze', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
         body: JSON.stringify(body),
     });
-
-    if (!response.ok) {
-        throw new Error('Failed to analyze news');
-    }
-
-    return response.json();
 }
 
 export async function verifyOnChain(_predictionHash: string): Promise<{ txHash: string }> {
@@ -118,19 +156,11 @@ export interface MarketOverview {
 }
 
 export async function fetchFearGreedIndex(): Promise<FearGreedData> {
-    const response = await fetch(`${API_BASE}/api/fear-greed`);
-    if (!response.ok) {
-        throw new Error('Failed to fetch Fear & Greed Index');
-    }
-    return response.json();
+    return apiFetch<FearGreedData>('/api/fear-greed');
 }
 
 export async function fetchMarketOverview(): Promise<MarketOverview> {
-    const response = await fetch(`${API_BASE}/api/market-overview`);
-    if (!response.ok) {
-        throw new Error('Failed to fetch market overview');
-    }
-    return response.json();
+    return apiFetch<MarketOverview>('/api/market-overview');
 }
 
 export interface NasdaqOverview {
@@ -148,11 +178,7 @@ export interface NasdaqOverview {
 }
 
 export async function fetchNasdaqOverview(): Promise<NasdaqOverview> {
-    const response = await fetch(`${API_BASE}/api/nasdaq-overview`);
-    if (!response.ok) {
-        throw new Error('Failed to fetch NASDAQ overview');
-    }
-    return response.json();
+    return apiFetch<NasdaqOverview>('/api/nasdaq-overview');
 }
 
 // ==========================================
@@ -209,32 +235,24 @@ export interface OnChainData {
 }
 
 export async function fetchFundingRates(): Promise<FundingRate[]> {
-    const response = await fetch(`${API_BASE}/api/home/funding-rates`);
-    if (!response.ok) throw new Error('Failed to fetch funding rates');
-    return response.json();
+    return apiFetch<FundingRate[]>('/api/home/funding-rates');
 }
 
 export async function fetchMacroCalendar(): Promise<MacroEvent[]> {
     try {
-        const response = await fetch(`${API_BASE}/api/home/macro-calendar`);
-        if (!response.ok) return [];
-        return await response.json();
+        return await apiFetch<MacroEvent[]>('/api/home/macro-calendar');
     } catch (error) {
-        console.error("Error fetching macro calendar:", error);
+        console.error('Error fetching macro calendar:', error);
         return [];
     }
 }
 
 export async function fetchLiquidations(): Promise<Liquidation[]> {
-    const response = await fetch(`${API_BASE}/api/home/liquidations`);
-    if (!response.ok) throw new Error('Failed to fetch liquidations');
-    return response.json();
+    return apiFetch<Liquidation[]>('/api/home/liquidations');
 }
 
 export async function fetchOnChainData(): Promise<OnChainData> {
-    const response = await fetch(`${API_BASE}/api/home/onchain`);
-    if (!response.ok) throw new Error('Failed to fetch on-chain data');
-    return response.json();
+    return apiFetch<OnChainData>('/api/home/onchain');
 }
 
 
@@ -259,35 +277,30 @@ export interface Watchlist {
 
 export async function fetchWatchlists(): Promise<Watchlist[]> {
     try {
-        const res = await fetch(`${API_BASE}/api/home/watchlist`);
-        if (!res.ok) return [];
-        return await res.json();
+        return await apiFetch<Watchlist[]>('/api/home/watchlist');
     } catch (error) {
-        console.error("Error fetching watchlists:", error);
+        console.error('Error fetching watchlists:', error);
         return [];
     }
 }
 
-export async function createWatchlist(name: string, items: { symbol: string, type: 'STOCK' | 'CRYPTO' }[]): Promise<Watchlist[]> {
+export async function createWatchlist(
+    name: string,
+    items: { symbol: string; type: 'STOCK' | 'CRYPTO' }[]
+): Promise<Watchlist[]> {
     try {
-        const res = await fetch(`${API_BASE}/api/home/watchlist`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, items })
+        return await apiFetch<Watchlist[]>('/api/home/watchlist', {
+            method: 'POST',
+            body: JSON.stringify({ name, items }),
         });
-        if (!res.ok) throw new Error("Failed to create watchlist");
-        return await res.json();
     } catch (error) {
-        console.error("Error creating watchlist:", error);
+        console.error('Error creating watchlist:', error);
         throw error;
     }
 }
 
 export async function deleteWatchlist(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/api/home/watchlist/${id}`, {
-        method: "DELETE"
-    });
-    if (!res.ok) throw new Error("Failed to delete watchlist");
+    await apiFetch<void>(`/api/home/watchlist/${id}`, { method: 'DELETE' });
 }
 
 
@@ -382,8 +395,51 @@ export interface AssetDetail {
     timestamp: string;
 }
 
-export async function fetchAssetDetail(symbol: string, type: 'crypto' | 'stock' = 'crypto'): Promise<AssetDetail> {
-    const response = await fetch(`${API_BASE}/api/asset-detail/${symbol}?type=${type}`);
-    if (!response.ok) throw new Error(`Failed to fetch asset detail for ${symbol}`);
-    return response.json();
+export async function fetchAssetDetail(
+    symbol: string,
+    type: 'crypto' | 'stock' = 'crypto'
+): Promise<AssetDetail> {
+    return apiFetch<AssetDetail>(`/api/asset-detail/${symbol}`, { params: { type } });
+}
+
+
+// ==========================================
+// ANALYSIS REPORTS & NOTES
+// ==========================================
+
+export type TimeFrame = 'daily' | 'weekly' | 'monthly';
+
+export interface AnalysisReport {
+    content: string;
+    timestamp: string;
+}
+
+export interface Note {
+    id: string;
+    title: string;
+    content: string;
+    date: string;
+}
+
+export async function fetchAnalysisReport(timeframe: TimeFrame): Promise<AnalysisReport> {
+    return apiFetch<AnalysisReport>(`/api/analysis/report/${timeframe}`);
+}
+
+export async function generateAnalysisReport(timeframe: TimeFrame): Promise<AnalysisReport> {
+    return apiFetch<AnalysisReport>(`/api/analysis/generate/${timeframe}`, { method: 'POST' });
+}
+
+export async function fetchNotes(): Promise<Note[]> {
+    return apiFetch<Note[]>('/api/analysis/notes');
+}
+
+export async function createNote(title: string, content: string): Promise<Note[]> {
+    return apiFetch<Note[]>('/api/analysis/notes', {
+        method: 'POST',
+        body: JSON.stringify({ title, content }),
+    });
+}
+
+export async function deleteNote(id: string): Promise<Note[]> {
+    return apiFetch<Note[]>(`/api/analysis/notes/${id}`, { method: 'DELETE' });
 }
